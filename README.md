@@ -1,13 +1,14 @@
-# LUNG RT 1.0.0
+# LUNG RT 1.1.0
 
 Plugin local único para rastreio de nódulos, acesso ao 4D do ContourLab e pré-laudo
 experimental sob demanda. Instala em Local Suite completa ou no shell compacto
 fornecido pelo instalador. Reutiliza o Python, Torch, fila, seletor e motor da Suite.
 
 - Rastreio: `/lung/rastreio`. Pré-laudos começam **desligados (0)** em cada turno.
-- Caso único: `/lung/laudo`, com MPR local e processamento real WebGPU.
+- Laudo de TC: `/lung/laudo`, com MPR local e processamento real WebGPU.
+- Laudo de raios X: `/lung/laudo/rx`, para radiografia frontal de tórax e rascunho local sob demanda.
 - Nódulos e 4D: `/lung/nodulos` e `/lung/4d`, do motor compartilhado.
-- Não há serviço de inferência remoto, pagamento ou fallback silencioso para CPU.
+- A inferência é local. O laudo de TC requer WebGPU; o de raios X usa CPU.
 - O piloto int4 requer GPU de pelo menos 6 GB verificada no host, navegador com
   WebGPU e recursos íntegros. Uma P2200 de 5 GB é recusada para pré-laudos.
 - Até uma hora por tentativa incluindo preparo; cancelamento, aba perdida,
@@ -37,3 +38,9 @@ O estado de modelo ausente/hardware insuficiente foi testado. Inferência com pe
 reais depende de uma estação compatível e não é alegada por esses testes.
 
 Documentação do contrato: `docs/HOST_CONTRACT.md`. Licenças: `LICENSE` e `NOTICE`.
+
+### Laudo sintético de raios X
+
+Abra **LUNG RT → Laudo de raios X** para visualizar uma radiografia frontal de tórax e gerar um rascunho experimental para revisão humana. A imagem é processada no computador e o fluxo é separado do laudo de TC.
+
+O preparo opcional do MedGemma 1.5 4B quantizado baixa aproximadamente 3,37 GB de recursos depois do aceite dos termos HAI-DEF. O runtime Windows x64 executa em CPU e não altera o Python, o Torch ou o CUDA da Suite. O instalador leve contém apenas o código e o catálogo com as revisões e hashes dos recursos.

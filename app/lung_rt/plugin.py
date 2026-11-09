@@ -225,8 +225,18 @@ def mount(app, host_services):
     @app.get("/lung/laudo",response_class=HTMLResponse)
     def report_page(): return page("report")
 
+    @app.get("/lung/laudo/rx",response_class=HTMLResponse)
+    def xray_report_page():
+        from .ui import render_xray
+        return render_xray(runtime)
+
+    from .xray import mount_xray_api
+    mount_xray_api(app,runtime)
+
     @app.get("/api/lung-plugin/status")
-    def status(): return {"version":"1.0.0","capability":runtime.provider.preflight(verify=False),**runtime.state()}
+    def status():
+        from . import __version__
+        return {"version":__version__,"capability":runtime.provider.preflight(verify=False),**runtime.state()}
 
     @app.get("/api/lung-plugin/state")
     def state(): return runtime.state()

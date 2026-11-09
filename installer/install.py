@@ -122,8 +122,11 @@ def install_through_host(root,reports):
 
 def standalone(root,reports):
     if suite_version(root):
-        if SDK._version(suite_version(root))<(8,14):
-            raise ValueError('Atualize a Local Suite existente para 8.14 pelo instalador da base e abra este START HERE novamente. Seus dados são preservados.')
+        spec=source_root()/'code/module.json'
+        if not spec.is_file():spec=HERE.parent/'module.json'
+        minimum=json.loads(spec.read_text(encoding='utf-8-sig'))['host_min_version']
+        if SDK._version(suite_version(root))<SDK._version(minimum):
+            raise ValueError(f'Atualize a Local Suite existente para {minimum} pelo instalador da base e abra este START HERE novamente. Seus dados são preservados.')
         return install_through_host(root,reports)
     if root.exists():
         allowed={'python','LICENCAS_ACEITAS.txt','Plugins','.lung-bootstrap','_instalacao'}
@@ -196,7 +199,7 @@ def offline(destination,reports):
                 say('Preparando recurso offline: '+item['path'])
                 SDK._download(item.get('urls') or [item['url']],SDK._inside(destination/'resources',item['path']),item['size'],item['sha256'],
                     lambda v: say('Download %.1f / %.1f MB'%(v.get('downloaded_bytes',0)/1024**2,v.get('total_bytes',1)/1024**2)))
-        (destination/'LEIA-ME.txt').write_text('Pacote LUNG RT para uma Local Suite 8.14 ou superior. Na máquina offline: Configurações > Plugin LUNG RT > Usar instalador ou pacote offline de uma pasta. Selecione esta pasta inteira. Os pesos de segmentação pulmonar devem estar na instalação base. Nenhum Python é substituído.\n',encoding='utf8')
+        (destination/'LEIA-ME.txt').write_text('Pacote LUNG RT para uma Local Suite compatível com a versão do plugin. Na máquina offline: Configurações > Plugin LUNG RT > Usar instalador ou pacote offline de uma pasta. Selecione esta pasta inteira. Os pesos de segmentação pulmonar devem estar na instalação base. Nenhum Python é substituído.\n',encoding='utf8')
         SDK._atomic(marker,{'schema':'lung-rt/offline-preparation/1','code_pin':digest,'reports':reports,'complete':True})
         say('Pacote conferido. Leve a pasta inteira e use a interface da Local Suite para instalar.')
     finally:package.close()

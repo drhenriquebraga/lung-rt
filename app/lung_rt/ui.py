@@ -22,3 +22,26 @@ def render(runtime,mode):
         try: return apply(page,"lung_laudo" if report else "lung_rastreio")
         except TypeError: return apply(page)
     return radai_menu.aplicar(ui.com_portao(page),"lung_laudo" if report else "lung_rastreio")
+
+
+def render_xray(runtime):
+    import radai_ui as ui
+    import radai_menu
+
+    title = "Laudo sintético · Raios X"
+    subtitle = "Radiografia de tórax · processamento local"
+    help_html = ui.ajuda(
+        "O pré-laudo experimental pode omitir ou inventar achados e exige revisão médica.",
+        "Selecione uma radiografia frontal de tórax. A imagem e o rascunho ficam nesta estação.",
+        direita=True,
+    )
+    header = ui.cabeca_de_funcao("pulmoes", title, subtitle, help_html, chave_modulo="lung")
+    page = (runtime.root / "web/xray.html").read_text(encoding="utf-8")
+    page = page.replace("@HEADER@", header)
+    apply = runtime.services.get("ui_apply")
+    if callable(apply):
+        try:
+            return apply(page, "lung_laudo_rx")
+        except TypeError:
+            return apply(page)
+    return radai_menu.aplicar(ui.com_portao(page), "lung_laudo_rx")

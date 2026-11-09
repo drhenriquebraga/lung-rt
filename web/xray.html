@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laudo sintético · Raios X</title>
+  <link rel="stylesheet" href="/lung-assets/lung.css">
+  <link rel="stylesheet" href="/lung-assets/xray.css">
+</head>
+<body>
+<main class="lung-shell rx-shell">
+  @HEADER@
+  <aside class="rx-model" aria-labelledby="rx-model-title">
+    <div>
+      <h2 id="rx-model-title">MedGemma 1.5 4B</h2>
+      <p id="rx-model-state" role="status" data-rx-text="checking">Verificando modelo local…</p>
+      <progress id="rx-model-progress" hidden data-rx-label="modelProgress" aria-label="Download do modelo"></progress>
+    </div>
+    <button id="rx-prepare" class="ui-bt" type="button" disabled data-rx-text="prepare">Preparar modelo</button>
+  </aside>
+  <div class="lung-workspace rx-workspace">
+    <section class="rx-panel" aria-labelledby="rx-image-title">
+      <header class="rx-panel-head">
+        <h2 id="rx-image-title" data-rx-text="imageTitle">Radiografia frontal de tórax</h2>
+        <button id="rx-replace" class="ui-bt" type="button" hidden data-rx-text="replace">Trocar imagem</button>
+      </header>
+      <div class="rx-viewer" id="rx-viewer">
+        <button id="rx-open-upload" class="rx-open-upload" type="button">
+          <svg viewBox="0 0 64 64" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="13" y="10" width="38" height="44" rx="5"/>
+            <path d="M32 43V24m-7 7 7-7 7 7M19 19v-3h4m22 3v-3h-4M19 45v3h4m22-3v3h-4"/>
+          </svg>
+          <strong data-rx-text="openUpload">Adicionar radiografia</strong>
+          <span data-rx-text="dropHint">Arraste um arquivo ou escolha no computador</span>
+          <span class="rx-formats" data-rx-text="formats">DICOM DX/CR, JPEG ou PNG</span>
+        </button>
+        <img id="rx-image" hidden data-rx-label="previewAlt" alt="Prévia da radiografia selecionada">
+      </div>
+    </section>
+    <section class="rx-panel rx-report" aria-labelledby="rx-report-title">
+      <header class="rx-panel-head">
+        <h2 id="rx-report-title" data-rx-text="reportTitle">Laudo sintético</h2>
+        <span class="rx-draft" data-rx-text="draft">RASCUNHO NÃO VERIFICADO</span>
+      </header>
+      <div class="rx-report-body">
+        <p class="rx-warning" data-rx-text="warning">Pré-laudo experimental. Revise a imagem e o texto antes de qualquer uso clínico.</p>
+        <p id="rx-report-state" role="status" data-rx-text="reportEmpty">Adicione uma radiografia para iniciar.</p>
+        <progress id="rx-report-progress" hidden data-rx-label="reportProgress" aria-label="Geração do rascunho"></progress>
+        <p id="rx-error" class="rx-error" role="alert" hidden></p>
+        <pre id="rx-result" class="lung-report-text rx-result" hidden></pre>
+        <p id="rx-model-used" class="rx-model-used" hidden></p>
+      </div>
+      <div class="rx-report-actions">
+        <button id="rx-generate" class="ui-bt pri" type="button" disabled data-rx-text="generate">Gerar pré-laudo</button>
+        <button id="rx-copy" class="ui-bt" type="button" hidden disabled data-rx-text="copy">Copiar rascunho</button>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="rx-upload" class="rx-dialog" aria-labelledby="rx-upload-title">
+    <div class="rx-dialog-inner">
+      <header class="rx-dialog-head">
+        <div>
+          <h2 id="rx-upload-title" data-rx-text="uploadTitle">Carregar radiografia</h2>
+          <p data-rx-text="localUpload">A imagem é processada neste computador.</p>
+        </div>
+        <button class="rx-dialog-close" type="button" data-rx-close="upload" data-rx-label="close" aria-label="Fechar">×</button>
+      </header>
+      <input id="rx-file" type="file" accept=".dcm,.dicom,.jpg,.jpeg,.png,image/jpeg,image/png,application/dicom" hidden>
+      <button id="rx-choose" class="rx-drop" type="button" autofocus>
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 16V4m-4 4 4-4 4 4M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/>
+        </svg>
+        <span data-rx-text="choose">Arraste ou escolha um arquivo</span>
+        <span class="rx-formats" data-rx-text="formats">DICOM DX/CR, JPEG ou PNG</span>
+      </button>
+      <div id="rx-transfer" class="rx-transfer" hidden>
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 3h8l4 4v14H6zM14 3v5h4"/>
+          <path id="rx-transfer-check" d="m9 14 2 2 4-4" hidden/>
+        </svg>
+        <div>
+          <b id="rx-filename"></b>
+          <p id="rx-transfer-state" role="status"></p>
+          <progress id="rx-transfer-progress" data-rx-label="uploadProgress" aria-label="Carregamento local"></progress>
+        </div>
+      </div>
+      <p id="rx-upload-error" class="rx-error" role="alert" hidden></p>
+      <div class="rx-dialog-actions">
+        <button class="ui-bt" type="button" data-rx-close="upload" data-rx-text="cancel">Cancelar</button>
+        <button id="rx-use" class="ui-bt pri" type="button" disabled data-rx-text="use">Usar imagem</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="rx-license" class="rx-dialog" aria-labelledby="rx-license-title">
+    <div class="rx-dialog-inner">
+      <header class="rx-dialog-head">
+        <div>
+          <h2 id="rx-license-title" data-rx-text="prepare">Preparar modelo</h2>
+          <p>MedGemma 1.5 4B</p>
+        </div>
+        <button class="rx-dialog-close" type="button" data-rx-close="license" data-rx-label="close" aria-label="Fechar">×</button>
+      </header>
+      <p data-rx-text="downloadHelp">O preparo baixa cerca de 3,37 GB para processar radiografias frontais de tórax nesta estação.</p>
+      <p><a href="https://developers.google.com/health-ai-developer-foundations/terms" target="_blank" rel="noreferrer noopener" data-rx-text="license">Termos do Google HAI-DEF</a></p>
+      <label class="rx-accept"><input id="rx-accept" type="checkbox"> <span data-rx-text="accept">Li e aceito os termos do modelo.</span></label>
+      <div class="rx-dialog-actions">
+        <button class="ui-bt" type="button" data-rx-close="license" data-rx-text="cancel">Cancelar</button>
+        <button id="rx-download" class="ui-bt pri" type="button" disabled data-rx-text="download">Baixar modelo</button>
+      </div>
+    </div>
+  </dialog>
+</main>
+<script type="module" src="/lung-assets/xray.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-LUNG RT 1.0.0
+LUNG RT 1.1.0
 
 Original plugin code: MIT, Radioterapia.AI contributors. Host Local Suite and
 ContourLab remain separately licensed and are reused through their APIs.
@@ -32,3 +32,11 @@ Product incorporation under https://transitions.dev/terms.html, reviewed
 relicensed as MIT, nor redistributed as a motion library. Size/anchor are
 adapted to the notification panel; official state transitions/tokens retained.
 Community and upstream source manifests have SHA256 entries in catalog/sources.json.
+
+Optional chest X-ray reporting resources (downloaded after separate acceptance):
+MedGemma 1.5 4B by Google, with GGUF conversion by Unsloth.
+HAI-DEF is provided under and subject to the Health AI Developer Foundations Terms of Use found at https://developers.google.com/health-ai-developer-foundations/terms
+llama.cpp Windows CPU runtime by ggml-org, MIT. See catalog/xray_resources.json
+for the pinned revisions, bytes and hashes.
+Upload dialog visual reference: https://transitions.dev/studio.html?id=cJ4qF6fWxm1
+Original local implementation with real upload progress.

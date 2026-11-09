@@ -11,7 +11,7 @@ import zipfile
 SOURCE=Path(__file__).resolve().parents[1]
 DIRS=('app','catalog','integration','web','docs')
 FILES=('module.json','LICENSE','NOTICE','README.md')
-FORBIDDEN={'.dcm','.onnx','.safetensors','.pth','.whl','.wasm','.bin','.sqlite','.db','.log'}
+FORBIDDEN={'.dcm','.onnx','.safetensors','.pth','.whl','.wasm','.bin','.sqlite','.db','.log','.gguf','.exe','.dll','.zip'}
 
 
 def digest(path):
@@ -80,7 +80,11 @@ def package(frozen,suite_setup,host_sdk,destination):
         if any('/python/' in n.lower() or '/ts_weights/' in n.lower() or n.lower().endswith(('.onnx','.pth','.safetensors')) for n in source.namelist()):
             raise ValueError('A base deve conter apenas o SETUP leve.')
         stamp=source.read('programa/entrega.txt').decode('utf-8-sig')
-        if 'VERSAO=8.14' not in stamp:raise ValueError('Base Suite incompatível com a release inicial LUNG.')
+        base_version=re.search(r'^VERSAO=([0-9.]+)[ \t]*\r?$',stamp,re.M)
+        module=json.loads((frozen/'code/module.json').read_text(encoding='utf8'))
+        minimum=tuple(map(int,module.get('host_min_version','8.14').split('.')))
+        if not base_version or tuple(map(int,base_version[1].split('.')))<minimum:
+            raise ValueError('A base Suite não atende à versão mínima do plugin.')
         nested_sdk=source.read('programa/app/radai_lung_install.py').decode('utf-8-sig')
         nested_pins=set()
         for node in ast.parse(nested_sdk).body:

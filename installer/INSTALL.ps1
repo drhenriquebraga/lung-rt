@@ -64,10 +64,11 @@ try {
     $stamp=Join-Path $suitePath 'entrega.txt'
     if(Test-Path -LiteralPath $stamp -PathType Leaf) {
         $versionLine=Get-Content -LiteralPath $stamp | Where-Object {$_ -match '^VERSAO='} | Select-Object -First 1
-        if(-not $versionLine -or [version]($versionLine.Split('=')[1].Trim()) -lt [version]'8.14') {throw 'Atualize a Local Suite existente para 8.14 pelo instalador da base e abra este START HERE novamente.'}
+        $minimum = (Get-Content -LiteralPath (Join-Path $base 'code\module.json') -Raw -Encoding UTF8 | ConvertFrom-Json).host_min_version
+        if(-not $versionLine -or [version]($versionLine.Split('=')[1].Trim()) -lt [version]$minimum) {throw ('Atualize a Local Suite existente para ' + $minimum + ' pelo instalador da base e abra este START HERE novamente.')}
     } elseif(Test-Path -LiteralPath $suitePath) {
         $owned=(Test-Path -LiteralPath (Join-Path $suitePath '.lung-bootstrap')) -or (Test-Path -LiteralPath (Join-Path $suitePath '_instalacao\_motor_comecou.txt'))
-        if(-not $owned -and @(Get-ChildItem -LiteralPath $suitePath -Force).Count -gt 0) {throw 'Escolha uma pasta vazia para a nova base ou uma Local Suite 8.14 já instalada.'}
+        if(-not $owned -and @(Get-ChildItem -LiteralPath $suitePath -Force).Count -gt 0) {throw 'Escolha uma pasta vazia para a nova base ou uma Local Suite compatível já instalada.'}
     }
     }
     Write-Host 'LUNG RT — preparo local' -ForegroundColor Cyan

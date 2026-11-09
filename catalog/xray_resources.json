@@ -1,0 +1,26 @@
+{
+  "schema": "lung-rt/xray-resources/1",
+  "model_id": "google/medgemma-1.5-4b-it",
+  "display_name": "MedGemma 1.5 4B",
+  "revision": "3855f948626b7ae42bccd082757f15078c53e758",
+  "license": "Health AI Developer Foundations Terms of Use",
+  "terms_url": "https://developers.google.com/health-ai-developer-foundations/terms",
+  "runtime": {
+    "filename": "llama-b12212-bin-win-cpu-x64.zip",
+    "size": 24886394,
+    "sha256": "85d87accadf52f2a79466f8a9d3dba0e2b888c536d1f865164e345499d126f37",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12212/llama-b12212-bin-win-cpu-x64.zip"
+  },
+  "model": {
+    "filename": "medgemma-1.5-4b-it-Q4_K_M.gguf",
+    "size": 2489894976,
+    "sha256": "b31becdf4f39561800505514cce67681604fe449d04dd35c8c92fd7848c6d7bd",
+    "url": "https://huggingface.co/unsloth/medgemma-1.5-4b-it-GGUF/resolve/3855f948626b7ae42bccd082757f15078c53e758/medgemma-1.5-4b-it-Q4_K_M.gguf"
+  },
+  "mmproj": {
+    "filename": "mmproj-F16.gguf",
+    "size": 851252224,
+    "sha256": "f45f0f750587494e8f976d952cb396dfaa3158662120e2f9c224fc11f3882c83",
+    "url": "https://huggingface.co/unsloth/medgemma-1.5-4b-it-GGUF/resolve/3855f948626b7ae42bccd082757f15078c53e758/mmproj-F16.gguf"
+  }
+}

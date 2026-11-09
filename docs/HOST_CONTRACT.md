@@ -1,6 +1,6 @@
-# Host contract — LUNG RT 1.0
+# Host contract — LUNG RT 1.1
 
-Discovery: module.json schema lung-rt/plugin-manifest/1, id lung-rt, host >=8.14.
+Discovery: module.json schema lung-rt/plugin-manifest/1, id lung-rt, host >=8.15.
 Adapter integration/local_suite.py:mount(app, code=None, *, host_services=None)
 imports app/lung_rt/plugin.py:mount(app, host_services). It does not redefine /lung,
 /lung/nodulos, /lung/4d or /api/lung/*.
@@ -34,3 +34,9 @@ builds PDF and DICOM using stdlib/pydicom. No new Python dependency.
 Consent receipt: schema lung-rt/consent-receipt/1, accepted=true, version and digest
 exactly equal catalog/consent.json, accepted_at. Starting either workflow requires it.
 No watcher or report job rearms after process restart.
+
+X-ray drafts use /lung/laudo/rx and /api/lung-plugin/xray/{status,preview,prepare,report}.
+Preview accepts one local DX/CR chest radiograph, PNG or JPEG and returns a sanitized PNG.
+The optional MedGemma resources are pinned in catalog/xray_resources.json and prepared
+only with separate license acceptance. A transient report acquires the lung-xray-report
+queue owner and does not enter the CT report store.
