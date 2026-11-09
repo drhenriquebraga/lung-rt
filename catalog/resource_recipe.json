@@ -1,0 +1,98 @@
+{
+  "schema": "lung-rt/resource-recipe/1",
+  "automatic_download": false,
+  "requires_acceptance": [
+    "MIT",
+    "OpenMDW-1.1"
+  ],
+  "files": [
+    {
+      "path": "models/nv-reason-ct-int4/int4/decoder.data0",
+      "size": 1891923968,
+      "sha256": "b75d3fa75da1977e38db6ed8c0704f0dee217c6f000686d2d401013bf8ce29e9",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/int4/decoder.data0",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/int4/decoder.data1",
+      "size": 886702080,
+      "sha256": "e509ab136aacd1516337eca3898b0de393c8e8a5b6c5a09e7439a484d60bb0f5",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/int4/decoder.data1",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/int4/decoder.json",
+      "size": 2121,
+      "sha256": "be4e433eba509d6000fa24f09ab515991a2ed51c37fe054f3510971b5b6cc433",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/int4/decoder.json",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/int4/decoder.onnx",
+      "size": 553814,
+      "sha256": "f03bef834dd6ac84af2f34fb394244e59f9994b7568cae2e65c85ca047d56731",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/int4/decoder.onnx",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/tokenizer.json",
+      "size": 19989325,
+      "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/tokenizer.json",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/tokenizer_config.json",
+      "size": 1339,
+      "sha256": "43ad4763287aaba4486a9f0fc787ab8eacbf2bfc812084520a19a28c242b1349",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/tokenizer_config.json",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/vision.data0",
+      "size": 184092928,
+      "sha256": "44453392436f442ff5e51e3733f14d97793408a48f85ba6ef5a173adb6038f1d",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/vision.data0",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/vision.json",
+      "size": 98,
+      "sha256": "8a96988a1985200596095cd91b4689722db377df6d28334ac9f65a4166945503",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/vision.json",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "models/nv-reason-ct-int4/vision.onnx",
+      "size": 520510,
+      "sha256": "41f373eac3817f4bee2cbb534030929e68f980a0ee53ed09ca123e7c061e39a6",
+      "url": "https://huggingface.co/jarrelscy/nv-reason-ct-onnx/resolve/83b49f5557298933f71bc0db9c8cbc20653c6032/vision.onnx",
+      "group": "reports",
+      "license": "OpenMDW-1.1"
+    },
+    {
+      "path": "runtimes/nvreason/ort-wasm-simd-threaded.asyncify.mjs",
+      "size": 53057,
+      "sha256": "3d1c85995364bb643302fc6fd877a0c3ba5ae72401815e0f24828a53d9191e28",
+      "url": "https://raw.githubusercontent.com/jarrelscy/nv-reason-ct-web/ce6bbe93cebc0ade5a6f1210ee8cef50fff4ead2/vendor/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "group": "reports",
+      "license": "MIT"
+    },
+    {
+      "path": "runtimes/nvreason/ort-wasm-simd-threaded.asyncify.wasm",
+      "size": 26781914,
+      "sha256": "39f9f0894d478800487ed9f7dbe92618498db320cf55c8e3d89adff8dce658da",
+      "url": "https://raw.githubusercontent.com/jarrelscy/nv-reason-ct-web/ce6bbe93cebc0ade5a6f1210ee8cef50fff4ead2/vendor/ort/ort-wasm-simd-threaded.asyncify.wasm",
+      "group": "reports",
+      "license": "MIT"
+    }
+  ]
+}

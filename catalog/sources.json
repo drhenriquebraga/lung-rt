@@ -1,0 +1,94 @@
+{
+  "schema": "lung-rt/source-audit/1",
+  "date": "2026-11-08",
+  "nv_code_revision": "ce6bbe93cebc0ade5a6f1210ee8cef50fff4ead2",
+  "files": [
+    {
+      "path": "web/vendor/dropdown-morph/style.css",
+      "sha256": "64e381bd7daa19746e2592911a4fd8d911607801138a142c16e68984b8a5dc26",
+      "size": 2476
+    },
+    {
+      "path": "web/vendor/dropdown-morph/tokens.css",
+      "sha256": "d410866c7f1e08284394eed7ea3265bbdee367732ca13e78fbfdae0a5b7a51b4",
+      "size": 308
+    },
+    {
+      "path": "web/vendor/notification-badge/LICENSE",
+      "sha256": "021725d683cc20fe9522a725e6aea6bf85a3ca80c7bb649eb86c836ecf3d1add",
+      "size": 1132
+    },
+    {
+      "path": "web/vendor/notification-badge/style.css",
+      "sha256": "c8daa32dcbbe1b7bfd45fe36358d524c9d03ab01dd771d31d83c1662336b1a14",
+      "size": 6573
+    },
+    {
+      "path": "web/vendor/notification-badge/upstream.json",
+      "sha256": "b66e1119535c8141c5989bd66c404c937552149171b964cab2cb5a2fef25edbb",
+      "size": 10258
+    },
+    {
+      "path": "web/vendor/nvreason/lib/nvreason.js",
+      "sha256": "c5a3216bd798b3cda4e8ed873a5e433f30e6c8b60e9f724ed36bdbd525e8dcdc",
+      "size": 9423
+    },
+    {
+      "path": "web/vendor/nvreason/lib/preprocess.js",
+      "sha256": "638e178b0b225cffe9a5898d8699398a402ee1c78227c334748aaff9cbd2ce19",
+      "size": 10177
+    },
+    {
+      "path": "web/vendor/nvreason/LICENSE",
+      "sha256": "5b1362b08afc55072d5436dbabec2095ae14b8d1dea9b9f029f3924c985e79ff",
+      "size": 1066
+    },
+    {
+      "path": "web/vendor/nvreason/LICENSE-OpenMDW",
+      "sha256": "d7c8a9e5d1896d0a9588319cc7b1433e64645ad6d9e55632c30b78d8c038c23b",
+      "size": 2693
+    },
+    {
+      "path": "web/vendor/nvreason/README.md",
+      "sha256": "ac5615398925c7b0e91a6b41859c26ae42264c2a7dd815f64a22504ca6146e72",
+      "size": 4967
+    },
+    {
+      "path": "web/vendor/nvreason/THIRD_PARTY_LICENSES.md",
+      "sha256": "6e61aff551eba67f08b965b3ff4cd1de525f714bb3cede75d6a49b4aa6e1af31",
+      "size": 11806
+    },
+    {
+      "path": "web/vendor/nvreason/vendor/ort/ort-wasm-simd-threaded.asyncify.mjs",
+      "sha256": "3d1c85995364bb643302fc6fd877a0c3ba5ae72401815e0f24828a53d9191e28",
+      "size": 53057
+    },
+    {
+      "path": "web/vendor/nvreason/vendor/ort/ort-wasm-simd-threaded.asyncify.wasm",
+      "sha256": "39f9f0894d478800487ed9f7dbe92618498db320cf55c8e3d89adff8dce658da",
+      "size": 26781914
+    },
+    {
+      "path": "web/vendor/nvreason/vendor/ort/ort.webgpu.min.mjs",
+      "sha256": "3dffff71811bc13a3a3d9591c57ca5ee5735b8f5f3eaf789510b02bb040ae3a0",
+      "size": 66349
+    },
+    {
+      "path": "web/vendor/nvreason/vendor/tokenizers/LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "size": 11357
+    },
+    {
+      "path": "web/vendor/nvreason/vendor/tokenizers/tokenizers.min.mjs",
+      "sha256": "258e46332101335ce8d95aed7745b19ac3b46d37f3e159a89cf894c2ea9b1d3a",
+      "size": 36601
+    }
+  ],
+  "audit": {
+    "remote_inference": false,
+    "original_unused_upstream_worker_excluded": true,
+    "upstream_math_unchanged": true,
+    "weights_downloaded": false,
+    "real_inference_tested": false
+  }
+}

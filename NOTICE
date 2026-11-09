@@ -1,0 +1,34 @@
+LUNG RT 1.0.0
+
+Original plugin code: MIT, Radioterapia.AI contributors. Host Local Suite and
+ContourLab remain separately licensed and are reused through their APIs.
+No host Python, Torch, model weights or standalone runtime is included here.
+
+NV-Reason-CT browser implementation by jarrelscy, MIT:
+https://github.com/jarrelscy/nv-reason-ct-web
+Code revision: ce6bbe93cebc0ade5a6f1210ee8cef50fff4ead2
+See web/vendor/nvreason/LICENSE and THIRD_PARTY_LICENSES.md.
+The unchanged lib/preprocess.js and lib/nvreason.js implement preprocessing and
+inference. Our report-worker.js adapts transport, completion checks and UI events:
+all model bytes come from this installation, never a remote inference service.
+Tokenizer library: Apache-2.0; license in vendor/tokenizers/LICENSE.
+ONNX Runtime Web: MIT; included in upstream THIRD_PARTY_LICENSES.md.
+
+NV-Reason-CT and derived model weights: NVIDIA, OpenMDW License 1.1.
+See web/vendor/nvreason/LICENSE-OpenMDW. Weight revision:
+83b49f5557298933f71bc0db9c8cbc20653c6032
+Quantized int4 is experimental; neither this integration nor its reports have
+been clinically validated. The upstream published minimum is a 6 GB GPU.
+
+Notification badge bell ring: Dani Akbar, published community c255dRhbki0,
+MIT. Source https://api.transitions.dev/community/c/c255dRhbki0
+The CSS is retained with provenance; notification.css scopes it to LUNG RT.
+The product does not enable the upstream sound example.
+
+Dropdown menu morph: Jakub Antalik / Transitions.dev.
+Recipe source https://transitions.dev/library.html (dropdown-menu-morph).
+Product incorporation under https://transitions.dev/terms.html, reviewed
+2026-11-08. This component retains the transitions.dev attribution. It is not
+relicensed as MIT, nor redistributed as a motion library. Size/anchor are
+adapted to the notification panel; official state transitions/tokens retained.
+Community and upstream source manifests have SHA256 entries in catalog/sources.json.

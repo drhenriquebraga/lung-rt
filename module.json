@@ -1,0 +1,35 @@
+{
+  "schema": "lung-rt/plugin-manifest/1",
+  "id": "lung-rt",
+  "name": "LUNG RT",
+  "version": "1.0.0",
+  "host_contract": "local-suite/plugins/1",
+  "host_min_version": "8.14",
+  "python": ">=3.10,<3.15",
+  "adapter": "integration/local_suite.py:mount",
+  "entrypoint": "/lung",
+  "runtime": "host-shared",
+  "execution_mode": "host",
+  "default_enabled": false,
+  "finding_requires_explicit_request": true,
+  "approval_status": "UNAPPROVED",
+  "report_completion": "PRELIMINARY",
+  "report_verification": "UNVERIFIED",
+  "license": "MIT",
+  "model_license": "per-model",
+  "model_license_source": "catalog/models.json",
+  "resource_recipe": "catalog/resource_recipe.json",
+  "enabled_tools": [
+    "rastreio",
+    "nodulos",
+    "4d",
+    "laudo"
+  ],
+  "runtimes": {},
+  "artifacts": [],
+  "defaults": {
+    "gerar_pre_laudos": 0,
+    "sound": false,
+    "automatic_watcher_restart": false
+  }
+}
