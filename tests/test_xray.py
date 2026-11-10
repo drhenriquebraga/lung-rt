@@ -210,11 +210,31 @@ class XrayApiTests(unittest.TestCase):
         with patch.object(xray.subprocess, "Popen", side_effect=fake_process):
             response = self.client.post(PREFIX + "/report", content=synthetic_png(), headers={**HEADERS, "Content-Type": "image/png"})
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json(), {"text": "Achados\nAmostra sintética\n\nImpressão\nTeste local", "model": "MedGemma 1.5 4B"})
+        self.assertEqual(response.json(), {"text": "Achados\nAmostra sintética\n\nImpressão\nTeste local",
+                                           "model": "MedGemma 1.5 4B", "requested_language": "pt-BR"})
         self.assertFalse(image_path.exists())
         self.assertEqual(self.owners, ["lung-xray-report"])
         self.assertEqual(self.released, self.owners)
         self.assertEqual(set(p.name for p in self.service.root.iterdir()), {*self.payload, "license.json"})
+
+    def test_report_requests_the_selected_language_from_a_fixed_list(self):
+        from lung_rt.reports import LANGUAGES
+
+        self.assertEqual(set(xray.DRAFT_LANGUAGES), LANGUAGES)
+        self.prepare_model()
+        for locale, (name, findings, impression) in xray.DRAFT_LANGUAGES.items():
+            with self.subTest(locale=locale):
+                process = SimpleNamespace(communicate=lambda timeout: (DRAFT, None), returncode=0)
+                headers = {**HEADERS, "Content-Type": "image/png", "Accept-Language": locale + ";q=0.9"}
+                with patch.object(xray.subprocess, "Popen", return_value=process) as launch:
+                    response = self.client.post(PREFIX + "/report", content=synthetic_png(), headers=headers)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["requested_language"], locale)
+                self.assertEqual(response.json()["text"], f"{findings}\nAmostra sintética\n\n{impression}\nTeste local")
+                args = launch.call_args.args[0]
+                self.assertIn(f"draft report in {name} ", args[args.index("-p") + 1])
+        self.assertEqual(xray._draft_language("zh-Hans-CN, en;q=0.8"), "zh-CN")
+        self.assertEqual(xray._draft_language("unsupported-header-text"), "pt-BR")
 
     def test_hash_tamper_same_size_refuses_to_start_cli(self):
         self.prepare_model()

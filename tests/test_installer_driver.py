@@ -48,7 +48,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.15\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.16\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -56,9 +56,9 @@ class DriverTests(unittest.TestCase):
             self.assertEqual(runtime.read_bytes(),b"synthetic sentinel")
     def test_old_suite_is_not_modified_or_prepared(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.13\n")
+            root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.15\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.15"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.16"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -257,6 +257,7 @@ class BuildTests(unittest.TestCase):
             self.assertFalse(result['runtime_or_weights_included'])
             with zipfile.ZipFile(versioned) as archive:
                 self.assertIn('TERMS.txt',archive.namelist())
+                self.assertIn('Extrair Tudo',archive.read('LEIA-ME.txt').decode())
                 self.assertEqual(archive.read('suite-setup.sha256').decode().strip(),hashlib.sha256(base.read_bytes()).hexdigest())
             file=tmp/'frozen/code/LICENSE';file.write_text('modified after freeze')
             with self.assertRaisesRegex(ValueError,'freeze mudou'):BUILD.package(tmp/'frozen',base,sdk,tmp/'second')
@@ -269,6 +270,38 @@ class BuildTests(unittest.TestCase):
             self.assertFalse((tmp.parent/'outside-test.py').exists())
 
 class PowerShellLayoutTests(unittest.TestCase):
+    @unittest.skipUnless(os.name=='nt','Windows launcher test')
+    def test_launcher_preserves_partial_zip_diagnostic(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            source=root/'partial LUNG_RT_SETUP.zip.856'
+            source.mkdir()
+            launcher=source/'START_HERE.cmd'
+            launcher.write_bytes((ROOT/'installer/START_HERE.cmd').read_bytes())
+            result=subprocess.run(['cmd.exe','/d','/c','call',str(launcher)],
+                                  env={**os.environ,'LOCALAPPDATA':str(root)},
+                                  input='\n',capture_output=True,text=True,timeout=15)
+            self.assertEqual(result.returncode,2,result.stdout+result.stderr)
+            self.assertIn('Extrair Tudo',result.stdout)
+            log=root/'RadioterapiaAI/LUNG RT/Logs/LUNG_RT_START_HERE.log'
+            self.assertIn('PACKAGE_INCOMPLETE',log.read_text())
+
+    @unittest.skipUnless(os.name=='nt','Windows installer test')
+    def test_installer_logs_missing_companions_before_gui(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            script=root/'INSTALL.ps1'
+            script.write_bytes((ROOT/'installer/INSTALL.ps1').read_bytes())
+            log=root/'logs'
+            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(script)],
+                                  env={**os.environ,'LUNG_RT_INSTALL_LOG_DIR':str(log)},
+                                  capture_output=True,text=True,timeout=15)
+            self.assertEqual(result.returncode,1,result.stdout+result.stderr)
+            self.assertIn('PACKAGE_INCOMPLETE',result.stdout)
+            self.assertIn('TERMS.txt',result.stdout)
+            transcript,=log.glob('LUNG_RT_INSTALL-*.log')
+            self.assertIn('PACKAGE_INCOMPLETE',transcript.read_text(encoding='utf-8-sig'))
+
     def test_parser_and_hidden_form_default_controls(self):
         if os.name!='nt':self.skipTest('Windows form parser test')
         script_path=str(ROOT/'installer/INSTALL.ps1').replace("'","''")
@@ -278,21 +311,28 @@ $tokens=$null;$parseErrors=$null
 [void][System.Management.Automation.Language.Parser]::ParseFile('__SCRIPT__',[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw ($parseErrors | Out-String)}
 $source=[IO.File]::ReadAllText('__SCRIPT__')
+$start=$source.IndexOf('# Setup window')
 $boundary=$source.IndexOf('[void]$form.ShowDialog()')
-if($boundary -lt 0){throw 'Missing reviewed GUI boundary'}
-$prefix=$source.Substring(0,$boundary)
+if($start -lt 0 -or $boundary -lt $start){throw 'Missing reviewed GUI boundary'}
+$prefix=$source.Substring($start,$boundary-$start)
 $prefix=[regex]::Replace($prefix,'(?m)^\$terms\s*=.*$',{param($match) '$terms = ''SYNTHETIC TEST ONLY. No installation or acceptance occurs.'' '})
+$base=$env:LUNG_RT_LAYOUT_FIXTURE
 Invoke-Expression $prefix
 $form.CreateControl();$form.PerformLayout()
 $outside=@($form.Controls | Where-Object {$_.Right -gt $form.ClientSize.Width -or $_.Bottom -gt $form.ClientSize.Height -or $_.Left -lt 0 -or $_.Top -lt 0})
-$result=@{parse_errors=$parseErrors.Count;reports_default=$report.Checked;accept_default=$accept.Checked;install_enabled=$install.Enabled;offline_enabled=$offline.Enabled;outside_count=$outside.Count;controls=$form.Controls.Count;client_width=$form.ClientSize.Width;client_height=$form.ClientSize.Height}
+$result=@{parse_errors=$parseErrors.Count;reports_default=$report.Checked;accept_default=$accept.Checked;install_enabled=$install.Enabled;offline_enabled=$offline.Enabled;outside_count=$outside.Count;controls=$form.Controls.Count;localized=($locale -eq 'ja' -and $setupUi -and $install.Text -eq $setupUi.install -and $install.Text -ne 'Instalar / atualizar');client_width=$form.ClientSize.Width;client_height=$form.ClientSize.Height}
 $form.Dispose()
 $result|ConvertTo-Json -Compress
 """.replace('__SCRIPT__',script_path)
         encoded=base64.b64encode(script.encode('utf-16le')).decode()
-        result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-EncodedCommand',encoded],capture_output=True,text=True,timeout=30)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp)/'installer-i18n.json').write_bytes((ROOT/'installer/i18n.json').read_bytes())
+            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-EncodedCommand',encoded],
+                                  env={**os.environ,'LUNG_RT_LAYOUT_FIXTURE':tmp,'LUNG_RT_LANGUAGE':'ja-JP'},
+                                  capture_output=True,text=True,timeout=30)
         self.assertEqual(result.returncode,0,result.stderr)
         values=json.loads(result.stdout.strip().splitlines()[-1]);self.assertEqual(values['parse_errors'],0);self.assertFalse(values['reports_default']);self.assertFalse(values['accept_default']);self.assertFalse(values['install_enabled']);self.assertFalse(values['offline_enabled']);self.assertEqual(values['outside_count'],0,values)
+        self.assertTrue(values['localized'],values)
 
 
 class SourceCheckoutTests(unittest.TestCase):

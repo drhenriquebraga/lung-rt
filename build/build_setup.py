@@ -99,16 +99,26 @@ def package(frozen,suite_setup,host_sdk,destination):
     policy=json.loads((frozen/'code/catalog/consent.json').read_text(encoding='utf8'))
     terms=policy['title']+'\n\n'+'\n\n'.join(policy['clauses'])
     terms+='\n\nA base compacta conserva as licenças Local Suite Apache-2.0, Python PSF e bibliotecas DICOM/TotalSegmentator. Leia LICENSE, NOTICE e catalog/sources.json distribuídos com este instalador. Nenhuma licença substitui as demais.\n'
+    guide=(
+        'LUNG RT | Instalação e pacote offline\n\n'
+        'Local Suite já instalada: selecione o ZIP do SETUP na tela do LUNG RT.\n'
+        'Para executar START HERE, clique com o botão direito no ZIP e selecione Extrair Tudo. '
+        'Depois abra START_HERE.cmd na pasta extraída.\n'
+        'Para levar o plugin a uma estação sem internet, prepare um pacote offline no START HERE '
+        'de uma máquina conectada. Leve a pasta completa e selecione-a na tela do LUNG RT.\n'
+    )
     destination.mkdir(parents=True,exist_ok=True)
     output=destination/('LUNG_RT_SETUP_v'+version+'.zip')
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
         archive.write(frozen/'release-manifest.json','release-manifest.json')
         for entry in inventory['files']:archive.write(frozen/entry['path'],entry['path'])
         for name in ('START_HERE.cmd','INSTALL.ps1','install.py'):archive.write(SOURCE/'installer'/name,name)
+        archive.write(SOURCE/'installer/i18n.json','installer-i18n.json')
         archive.write(host_sdk,'radai_lung_install.py')
         archive.write(suite_setup,'suite-setup.zip')
         archive.writestr('suite-setup.sha256',digest(suite_setup)+'\n')
         archive.writestr('TERMS.txt',terms)
+        archive.writestr('LEIA-ME.txt',guide)
     with zipfile.ZipFile(output) as archive:
         if archive.testzip():raise ValueError('O SETUP final não passou no CRC.')
     latest=destination/'LUNG_RT_SETUP_LATEST.zip';shutil.copyfile(output,latest)

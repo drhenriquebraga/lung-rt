@@ -1,4 +1,4 @@
-# LUNG RT 1.1.0
+# LUNG RT 1.1.1
 
 Plugin local único para rastreio de nódulos, acesso ao 4D do ContourLab e pré-laudo
 experimental sob demanda. Instala em Local Suite completa ou no shell compacto

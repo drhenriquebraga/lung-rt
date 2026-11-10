@@ -1,9 +1,71 @@
 ﻿$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+$base = $PSScriptRoot
+$setupLog = $null
+try {
+    $logDir = $env:LUNG_RT_INSTALL_LOG_DIR
+    if (-not $logDir) { $logDir = Join-Path $env:LOCALAPPDATA 'RadioterapiaAI\LUNG RT\Logs' }
+    [void](New-Item -ItemType Directory -Path $logDir -Force)
+    $setupLog = Join-Path $logDir ('LUNG_RT_INSTALL-' + [guid]::NewGuid().ToString('N') + '.log')
+    Start-Transcript -LiteralPath $setupLog | Out-Null
+    Write-Host ('Log da instalação: ' + $setupLog)
+} catch {
+    $setupLog = $null
+    Write-Warning ('Não foi possível criar o log: ' + $_.Exception.Message)
+}
+
+function Stop-SetupLog {
+    if ($setupLog) { Stop-Transcript | Out-Null }
+}
+
+function Write-SetupFailure($failure) {
+    Write-Host ('Não foi possível concluir: ' + $failure.Exception.Message) -ForegroundColor Yellow
+    if ($setupLog) { Write-Host ('Log da instalação: ' + $setupLog) }
+    Stop-SetupLog
+}
+
+trap {
+    Write-SetupFailure $_
+    exit 1
+}
+
+$required = @('TERMS.txt', 'install.py', 'radai_lung_install.py', 'release-manifest.json',
+    'code\module.json', 'suite-setup.zip', 'suite-setup.sha256')
+$missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $base $_) -PathType Leaf) })
+if ($missing.Count) {
+    throw ('PACKAGE_INCOMPLETE. Use Extrair Tudo no ZIP do SETUP e execute START_HERE.cmd na pasta extraída. Arquivos ausentes: ' + ($missing -join ', '))
+}
+
+# Setup window
+$setupUi = $null
+if ($base) {
+    $catalog = Join-Path $base 'installer-i18n.json'
+    if (Test-Path -LiteralPath $catalog -PathType Leaf) {
+        try {
+            $translations = Get-Content -LiteralPath $catalog -Raw -Encoding UTF8 | ConvertFrom-Json
+            $locale = $env:LUNG_RT_LANGUAGE
+            if (-not $locale) { $locale = [Globalization.CultureInfo]::CurrentUICulture.Name }
+            $locale = ($locale -split '[-_]')[0].ToLowerInvariant()
+            if ($locale -eq 'pt') { $locale = 'pt-BR' }
+            if ($locale -eq 'zh') { $locale = 'zh-CN' }
+            $row = $translations.PSObject.Properties[$locale]
+            if (-not $row) { $row = $translations.PSObject.Properties['en'] }
+            if ($row) { $setupUi = $row.Value }
+        } catch {
+            Write-Warning ('INSTALLER_I18N: ' + $_.Exception.Message)
+        }
+    }
+}
+function SetupText([string]$key, [string]$fallback) {
+    if ($setupUi) {
+        $value = $setupUi.PSObject.Properties[$key]
+        if ($value -and $value.Value) { return [string]$value.Value }
+    }
+    return $fallback
+}
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
-$base = $PSScriptRoot
 $script:chosen = ''
 $script:offline = ''
 $script:reports = $false
@@ -29,34 +91,34 @@ function ButtonAt([string]$text,[int]$x,[int]$y,[int]$w) {
 }
 $header = LabelAt 'LUNG RT' 24 18 700 42
 $header.Font = New-Object System.Drawing.Font('Segoe UI',24,[System.Drawing.FontStyle]::Bold)
-[void](LabelAt 'Instale como plugin ou prepare uma Local Suite compacta para rotinas pulmonares.' 26 68 710 48)
-[void](LabelAt 'Pasta da Local Suite (o Python existente será reutilizado)' 26 119 700 25)
+[void](LabelAt (SetupText 'intro' 'Instale o plugin ou prepare um pacote offline. Na outra estação, selecione a pasta do pacote na Local Suite.') 26 68 710 48)
+[void](LabelAt (SetupText 'suiteFolder' 'Pasta da Local Suite (o Python existente será reutilizado)') 26 119 700 25)
 $folder = New-Object System.Windows.Forms.TextBox
 $folder.SetBounds(26,148,604,29);$folder.Text=Join-Path $env:SystemDrive 'RADIOTERAPIA_AI\LOCAL_SUITE';$form.Controls.Add($folder)
-$browse = ButtonAt 'Pasta…' 639 143 94
-$browse.Add_Click({$dialog=New-Object System.Windows.Forms.FolderBrowserDialog;$dialog.Description='Pasta da Local Suite';$dialog.SelectedPath=$folder.Text;if($dialog.ShowDialog()-eq 'OK'){$folder.Text=$dialog.SelectedPath};$dialog.Dispose()})
+$browse = ButtonAt (SetupText 'browse' 'Pasta…') 639 143 94
+$browse.Add_Click({$dialog=New-Object System.Windows.Forms.FolderBrowserDialog;$dialog.Description=(SetupText 'folderTitle' 'Pasta da Local Suite');$dialog.SelectedPath=$folder.Text;if($dialog.ShowDialog()-eq 'OK'){$folder.Text=$dialog.SelectedPath};$dialog.Dispose()})
 $report = New-Object System.Windows.Forms.CheckBox
-$report.SetBounds(26,190,700,44);$report.Text='Preparar também laudos experimentais locais (~3 GB; WebGPU, GPU ≥ 6 GB)'
+$report.SetBounds(26,190,700,44);$report.Text=(SetupText 'reports' 'Preparar também laudos experimentais locais (~3 GB; WebGPU, GPU ≥ 6 GB)')
 $report.Checked=$false;$form.Controls.Add($report)
-[void](LabelAt 'No rastreio contínuo, gerar laudos vem desligado (=0). Você poderá ativar depois.' 26 238 705 30)
+[void](LabelAt (SetupText 'reportDefault' 'No rastreio contínuo, gerar laudos vem desligado (=0). Você poderá ativar depois.') 26 238 705 30)
 $box=New-Object System.Windows.Forms.RichTextBox
 $box.SetBounds(26,276,707,259);$box.ReadOnly=$true;$box.Text=$terms
 $box.BackColor=[System.Drawing.Color]::FromArgb(19,31,47);$box.ForeColor=$form.ForeColor;$box.DetectUrls=$true
 $box.Add_LinkClicked({param($sender,$event) Start-Process -FilePath $event.LinkText -WindowStyle Hidden})
 $form.Controls.Add($box)
 $accept=New-Object System.Windows.Forms.CheckBox
-$accept.SetBounds(26,547,708,44);$accept.Text='Li e aceito os termos e as licenças dos componentes que serão preparados.';$form.Controls.Add($accept)
-$install=ButtonAt 'Instalar / atualizar' 26 604 212
-$offline=ButtonAt 'Preparar pacote offline' 251 604 242
-$exit=ButtonAt 'Fechar' 541 604 192
+$accept.SetBounds(26,547,708,44);$accept.Text=(SetupText 'accept' 'Li e aceito os termos e as licenças dos componentes que serão preparados.');$form.Controls.Add($accept)
+$install=ButtonAt (SetupText 'install' 'Instalar / atualizar') 26 604 212
+$offline=ButtonAt (SetupText 'offline' 'Preparar pacote offline') 251 604 242
+$exit=ButtonAt (SetupText 'close' 'Fechar') 541 604 192
 $install.Enabled=$false;$offline.Enabled=$false
 $accept.Add_CheckedChanged({$install.Enabled=$accept.Checked;$offline.Enabled=$accept.Checked})
 $install.Add_Click({$script:chosen='install';$script:suite=$folder.Text;$script:reports=$report.Checked;$form.Close()})
-$offline.Add_Click({$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description='Escolha uma pasta vazia para levar o plugin à clínica';if($d.ShowDialog()-eq 'OK'){$script:offline=$d.SelectedPath;$script:suite=$folder.Text;$script:reports=$report.Checked;$script:chosen='offline';$form.Close()};$d.Dispose()})
+$offline.Add_Click({$d=New-Object System.Windows.Forms.FolderBrowserDialog;$d.Description=(SetupText 'offlineFolder' 'Escolha uma pasta vazia para levar o plugin à clínica');if($d.ShowDialog()-eq 'OK'){$script:offline=$d.SelectedPath;$script:suite=$folder.Text;$script:reports=$report.Checked;$script:chosen='offline';$form.Close()};$d.Dispose()})
 $exit.Add_Click({$form.Close()})
 [void]$form.ShowDialog()
 $form.Dispose()
-if(-not $script:chosen){exit 0}
+if(-not $script:chosen){Stop-SetupLog;exit 0}
 try {
     $suitePath=[System.IO.Path]::GetFullPath($script:suite.Trim().Trim('"'))
     if($suitePath.TrimEnd('\') -eq [System.IO.Path]::GetPathRoot($suitePath).TrimEnd('\')){throw 'Escolha uma pasta dentro do disco, não a raiz.'}
@@ -95,12 +157,22 @@ try {
         Remove-Item -LiteralPath $pyZip -Force
         $python=Join-Path $pyTarget 'python.exe'
     } else {Write-Host '2. Python da Local Suite encontrado. Nenhum Python será baixado ou substituído.'}
-    $runArgs=@('-I','-B',(Join-Path $base 'install.py'),'--suite-root',$suitePath,'--accept-terms')
+    $runArgs=@('-I','-B','-X','utf8',(Join-Path $base 'install.py'),'--suite-root',$suitePath,'--accept-terms')
     if($script:reports){$runArgs+='--reports'}
     if($script:chosen -eq 'offline'){$runArgs+=@('--offline',$script:offline)}
     Write-Host '3. Conferindo código, recursos e destino. Acompanhe o progresso abaixo...'
-    & $python @runArgs
-    if($LASTEXITCODE -ne 0){throw 'O preparo parou. Leia o motivo acima; os dados existentes foram preservados.'}
+    $previousErrorAction = $ErrorActionPreference
+    $previousOutputEncoding = [Console]::OutputEncoding
+    try {
+        $ErrorActionPreference = 'Continue'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        & $python @runArgs 2>&1 | ForEach-Object { Write-Host $_ }
+        $pythonExit = $LASTEXITCODE
+    } finally {
+        [Console]::OutputEncoding = $previousOutputEncoding
+        $ErrorActionPreference = $previousErrorAction
+    }
+    if ($pythonExit -ne 0) { throw ('O preparo parou. Código do instalador: ' + $pythonExit + '. O motivo está no log acima.') }
     if($script:chosen -eq 'install' -and (Test-Path -LiteralPath (Join-Path $suitePath 'radai_lancador.py'))) {
         $shell=New-Object -ComObject WScript.Shell
         $shortcut=$shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'LUNG RT.lnk'))
@@ -113,9 +185,8 @@ try {
     }
     Write-Host 'Pedido concluído. Se houve manutenção, acompanhe a janela externa até a reabertura.' -ForegroundColor Green
 } catch {
-    Write-Host ('Não foi possível concluir: '+$_.Exception.Message) -ForegroundColor Yellow
-    Write-Host 'Rede bloqueada? Prepare o pacote em outra máquina e use Configurações > Plugin LUNG RT > pasta offline.'
-    [void](Read-Host 'Pressione Enter para fechar')
+    Write-SetupFailure $_
     exit 1
 }
-[void](Read-Host 'Pressione Enter para fechar')
+Stop-SetupLog
+[void](Read-Host (SetupText 'exitPrompt' 'Pressione Enter para fechar'))

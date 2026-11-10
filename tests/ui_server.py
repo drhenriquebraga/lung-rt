@@ -2,6 +2,7 @@
 from pathlib import Path
 import atexit
 import json
+import os
 import sys
 import tempfile
 ROOT=Path(__file__).resolve().parents[1]
@@ -33,4 +34,4 @@ runtime=mount(app,services)
 def health():return {"synthetic_only":True}
 if __name__=="__main__":
  import uvicorn
- uvicorn.run(app,host='127.0.0.1',port=18747,log_level='warning')
+ uvicorn.run(app,host='127.0.0.1',port=int(os.environ.get("LUNG_RT_TEST_PORT","18747")),log_level='warning')

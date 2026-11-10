@@ -31,6 +31,20 @@ MIN_AVAILABLE_MEMORY = 4 * GIB
 SCRATCH_SPACE = 256 * MIB
 EXECUTABLE = "llama-mtmd-cli.exe"
 LICENSE = "health-ai-developer-foundations"
+DRAFT_LANGUAGES = {
+    "pt-BR": ("Brazilian Portuguese", "Achados", "Impressão"),
+    "en": ("English", "Findings", "Impression"),
+    "de": ("German", "Befunde", "Beurteilung"),
+    "es": ("Spanish", "Hallazgos", "Impresión"),
+    "fr": ("French", "Observations", "Conclusion"),
+    "it": ("Italian", "Reperti", "Conclusioni"),
+    "pl": ("Polish", "Wyniki", "Wnioski"),
+    "ar": ("Arabic", "المشاهدات", "الخلاصة"),
+    "bn": ("Bengali", "পর্যবেক্ষণ", "সারসংক্ষেপ"),
+    "ko": ("Korean", "소견", "판독 요약"),
+    "zh-CN": ("Simplified Chinese", "所见", "印象"),
+    "ja": ("Japanese", "所見", "まとめ"),
+}
 REPORT_PROMPT = (
     "Write a concise experimental draft report in Brazilian Portuguese for this single frontal chest radiograph. "
     "Use achados for observations and impressao for a concise summary. Describe only visible evidence, "
@@ -229,7 +243,14 @@ def _windows_memory():
     return memory.total, memory.available
 
 
-def _report_text(stdout, english=False):
+def _draft_language(accept_language):
+    preferred = accept_language.partition(",")[0].partition(";")[0].strip().lower()
+    primary = preferred.partition("-")[0]
+    locale = {"pt": "pt-BR", "zh": "zh-CN"}.get(primary, primary)
+    return locale if locale in DRAFT_LANGUAGES else "pt-BR"
+
+
+def _report_text(stdout, language="pt-BR"):
     try:
         if len(stdout) > 32000:
             raise ValueError("report_too_large")
@@ -241,8 +262,8 @@ def _report_text(stdout, english=False):
             raise ValueError("invalid_report")
     except (ValueError, AttributeError):
         raise XrayError("report_failed", 500) from None
-    sections = ("Findings", "Impression") if english else ("Achados", "Impressão")
-    return f"{sections[0]}\n{findings}\n\n{sections[1]}\n{impression}"
+    _, findings_label, impression_label = DRAFT_LANGUAGES[language]
+    return f"{findings_label}\n{findings}\n\n{impression_label}\n{impression}"
 
 
 class XrayService:
@@ -353,7 +374,7 @@ class XrayService:
                 self.invalid_resources = bool(error)
                 self.preparing = False
 
-    def generate(self, png, english=False):
+    def generate(self, png, language="pt-BR"):
         with self.lock:
             self._check_idle()
             if not self._ready():
@@ -385,8 +406,9 @@ class XrayService:
                 exe = _extract_runtime(BytesIO(runtime_bytes), scratch / "runtime")
                 image = scratch / "radiograph.png"
                 image.write_bytes(clean)
-                text = self._run(exe, image, scratch, english)
-            return {"text": text, "model": self.manifest.get("display_name", self.manifest["model_id"])}
+                text = self._run(exe, image, scratch, language)
+            return {"text": text, "model": self.manifest.get("display_name", self.manifest["model_id"]),
+                    "requested_language": language}
         except XrayError as exc:
             with self.lock:
                 self.error = exc.code
@@ -403,7 +425,7 @@ class XrayService:
                     self.process = None
                     self.running = False
 
-    def _run(self, executable, image, scratch, english=False):
+    def _run(self, executable, image, scratch, language="pt-BR"):
         threads = min(4, max(1, (os.cpu_count() or 2) // 2))
         args = [
             str(executable), "-m", str(self._path(self.manifest["model"]["filename"])),
@@ -411,7 +433,7 @@ class XrayService:
             "--image", str(image), "--no-mmproj-offload", "-ngl", "0", "--offline",
             "-t", str(threads), "-c", "4096", "-n", "512", "--temp", "0",
             "--json-schema", json.dumps(REPORT_SCHEMA, separators=(",", ":")), "-p",
-            REPORT_PROMPT.replace("Brazilian Portuguese", "English") if english else REPORT_PROMPT,
+            REPORT_PROMPT.replace("Brazilian Portuguese", DRAFT_LANGUAGES[language][0]),
         ]
         system = os.environ.get("SystemRoot", r"C:\Windows")
         env = {
@@ -435,7 +457,7 @@ class XrayService:
             raise XrayError("report_timeout", 504) from None
         if process.returncode:
             raise XrayError("report_failed", 500)
-        return _report_text(stdout, english)
+        return _report_text(stdout, language)
 
     def close(self):
         self.stop.set()
@@ -526,8 +548,8 @@ def mount_xray_api(app, runtime):
             raw = await _body(request, MAX_BODY)
             if not raw.startswith(PNG):
                 raise XrayError("invalid_xray")
-            language = request.headers.get("accept-language", "").partition(",")[0].partition("-")[0].strip().lower()
-            return await run_in_threadpool(service.generate, raw, language == "en")
+            language = _draft_language(request.headers.get("accept-language", ""))
+            return await run_in_threadpool(service.generate, raw, language)
         except Exception as exc:
             return failure(exc)
 

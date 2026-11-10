@@ -5,12 +5,13 @@ import os
 import tempfile
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
+BASE_URL="http://127.0.0.1:"+os.environ.get("LUNG_RT_TEST_PORT","18747")
 LANGS=['pt-BR','en','de','es','fr','it','pl','ar','bn','ko','zh-CN','ja']
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True,executable_path=r'C:\Program Files\Google\Chrome\Application\chrome.exe')
  try:
   page=browser.new_page(viewport={"width":1440,"height":1000});errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
-  page.goto('http://127.0.0.1:18747/lung/laudo');page.wait_for_load_state('networkidle')
+  page.goto(BASE_URL+'/lung/laudo');page.wait_for_load_state('networkidle')
   assert page.locator('#lung-start').is_disabled()
   assert page.locator('#lung-report-option').is_hidden()
   assert page.locator('#lung-select').inner_text()
@@ -49,10 +50,41 @@ with sync_playwright() as p:
   page.evaluate("document.documentElement.lang='pt-BR'")
   assert page.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth+2')
   page.screenshot(path=str(Path(tempfile.gettempdir())/'lung-ui-mobile.png'),full_page=True)
-  page.set_viewport_size({"width":1440,"height":1000});page.goto('http://127.0.0.1:18747/lung/rastreio');page.wait_for_load_state('networkidle')
+  page.set_viewport_size({"width":1440,"height":1000});page.goto(BASE_URL+'/lung/rastreio');page.wait_for_load_state('networkidle')
   assert not page.locator('#lung-generate').is_checked()
   assert page.locator('#lung-report-option').is_visible()
   page.screenshot(path=str(Path(tempfile.gettempdir())/'lung-ui-desktop.png'),full_page=True)
+  for route,kind in (('rastreio','lung'),('laudo','lung'),('laudo/rx','rx')):
+   page.goto(BASE_URL+'/lung/'+route);page.wait_for_load_state('networkidle')
+   titles=[]
+   for lang in LANGS:
+    actual=page.evaluate('''async ({lang,kind})=>{
+      const rx=kind==='rx';
+      const module=await import(rx?'/lung-assets/xray-i18n.js':'/lung-assets/i18n.js');
+      const t=rx?module.text:module.t;
+      document.documentElement.lang=lang;
+      document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+      await new Promise(requestAnimationFrame);
+      const titleKey=rx?'title':document.body.dataset.lungMode==='report'?'reportTitle':'screeningTitle';
+      const textAttr=rx?'data-rx-text':'data-lung-key';
+      const labelAttr=rx?'data-rx-label':'data-lung-title';
+      const failures=[];
+      for(const el of document.querySelectorAll('['+textAttr+']')){
+        const key=el.getAttribute(textAttr);
+        if(rx&&['rx-model-state','rx-report-state'].includes(el.id))continue;
+        if(!el.textContent||el.textContent!==t(key))failures.push(key);
+      }
+      for(const el of document.querySelectorAll('['+labelAttr+']')){
+        const key=el.getAttribute(labelAttr);
+        if(el.getAttribute(el.tagName==='IMG'?'alt':'aria-label')!==t(key))failures.push(key);
+      }
+      const title=t(titleKey);
+      if(document.title!==title||document.querySelector('.ui-fn-tag').textContent.trim()!==title)failures.push(titleKey);
+      return {title,failures};
+    }''',{'lang':lang,'kind':kind})
+    assert not actual['failures'],(route,lang,actual['failures'])
+    titles.append(actual['title'])
+   assert len(set(titles))>=10,(route,titles)
   assert not errors,errors
-  print(json.dumps({"chrome":"passed","languages":12,"desktop_mobile":True,"reduced_motion":True,"default_report_flag":0,"page_errors":errors}))
+  print(json.dumps({"chrome":"passed","languages":12,"localized_routes":3,"desktop_mobile":True,"reduced_motion":True,"default_report_flag":0,"page_errors":errors}))
  finally:browser.close()

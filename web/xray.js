@@ -1,68 +1,8 @@
 import {language} from './i18n.js';
+import {text} from './xray-i18n.js';
 
 const apiRoot = '/api/lung-plugin/xray';
 const $ = id => document.getElementById('rx-' + id);
-const strings = {
-  accept: ['Li e aceito os termos do modelo.', 'I have read and accept the model terms.'],
-  busy: ['O modelo está em uso. Aguarde para gerar outro pré-laudo.', 'The model is busy. Wait before generating another draft.'],
-  cancel: ['Cancelar', 'Cancel'],
-  checking: ['Verificando modelo local…', 'Checking the local model…'],
-  choose: ['Arraste ou escolha um arquivo', 'Drop or choose a file'],
-  close: ['Fechar', 'Close'],
-  consent: ['Leia e aceite os termos HAI-DEF antes de preparar o modelo.', 'Read and accept the HAI-DEF terms before setting up the model.'],
-  copied: ['Rascunho copiado.', 'Draft copied.'],
-  copy: ['Copiar rascunho', 'Copy draft'],
-  copyFailed: ['Selecione o texto para copiar.', 'Select the text to copy.'],
-  dimensions: ['A radiografia tem dimensões incompatíveis. Escolha outra exportação do exame.', 'This X-ray has unsupported dimensions. Choose another export of the exam.'],
-  disk: ['Espaço em disco insuficiente. Libere espaço nesta estação e tente novamente.', 'Not enough disk space. Free up space on this workstation and try again.'],
-  done: ['Imagem pronta', 'Image ready'],
-  download: ['Baixar modelo', 'Download model'],
-  downloadFailed: ['Falha ao preparar o modelo. Confira a conexão e tente novamente.', 'Model setup failed. Check the connection and try again.'],
-  downloadHelp: ['O preparo baixa cerca de 3,37 GB para processar radiografias frontais de tórax nesta estação.', 'Setup downloads about 3.37 GB to process frontal chest X-rays on this workstation.'],
-  downloading: ['Preparando modelo local…', 'Preparing the local model…'],
-  draft: ['RASCUNHO NÃO VERIFICADO', 'UNVERIFIED DRAFT'],
-  dropHint: ['Arraste um arquivo ou escolha no computador', 'Drop a file or choose one from your computer'],
-  emptyFile: ['O arquivo selecionado está vazio.', 'The selected file is empty.'],
-  fileTooLarge: ['O arquivo excede o tamanho aceito.', 'The file exceeds the allowed size.'],
-  formats: ['DICOM DX/CR, JPEG ou PNG', 'DICOM DX/CR, JPEG or PNG'],
-  generate: ['Gerar pré-laudo', 'Generate draft'],
-  generating: ['Gerando o pré-laudo nesta estação…', 'Generating a draft on this workstation…'],
-  imageTitle: ['Radiografia frontal de tórax', 'Frontal chest X-ray'],
-  invalidImage: ['Não foi possível abrir a radiografia. Escolha um DICOM DX/CR, JPEG ou PNG válido.', 'Could not open the X-ray. Choose a valid DICOM DX/CR, JPEG or PNG file.'],
-  license: ['Termos do Google HAI-DEF', 'Google HAI-DEF terms'],
-  localUpload: ['A imagem é processada neste computador.', 'The image is processed on this computer.'],
-  memory: ['Memória insuficiente para executar o modelo. Feche outros aplicativos e tente novamente.', 'Not enough memory to run the model. Close other applications and try again.'],
-  modelMissing: ['Prepare o modelo de radiografia para gerar pré-laudos.', 'Set up the X-ray model to generate drafts.'],
-  modelProgress: ['Download do modelo', 'Model download'],
-  modelReady: ['Modelo disponível nesta estação.', 'Model available on this workstation.'],
-  modelUsed: ['Modelo usado', 'Model used'],
-  multiple: ['Escolha uma radiografia por vez.', 'Choose one X-ray at a time.'],
-  openUpload: ['Adicionar radiografia', 'Add X-ray'],
-  platform: ['O modelo de radiografia requer uma estação Windows de 64 bits compatível.', 'The X-ray model requires a compatible 64-bit Windows workstation.'],
-  prepare: ['Preparar modelo', 'Set up model'],
-  previewAlt: ['Prévia da radiografia selecionada', 'Preview of the selected X-ray'],
-  replace: ['Trocar imagem', 'Replace image'],
-  reportEmpty: ['Adicione uma radiografia para iniciar.', 'Add an X-ray to get started.'],
-  reportError: ['Não foi possível gerar um rascunho. Tente novamente.', 'Could not generate a draft. Try again.'],
-  reportProgress: ['Geração do rascunho', 'Draft generation'],
-  reportReady: ['Imagem pronta para gerar um pré-laudo.', 'Image ready for draft generation.'],
-  reportReview: ['Rascunho gerado. Revisão médica pendente.', 'Draft generated. Medical review pending.'],
-  reportTitle: ['Laudo sintético', 'Synthetic report'],
-  subtitle: ['Radiografia de tórax · processamento local', 'Chest X-ray · local processing'],
-  resources: ['Os arquivos do modelo não passaram na verificação. Prepare o modelo novamente.', 'The model files did not pass verification. Set up the model again.'],
-  statusError: ['Não foi possível consultar o modelo local.', 'Could not check the local model.'],
-  title: ['Laudo sintético · Raios X', 'Synthetic report · X-ray'],
-  timeout: ['A geração atingiu o limite de tempo. Feche outros aplicativos e tente novamente.', 'Draft generation reached its time limit. Close other applications and try again.'],
-  unsupported: ['O exame não é compatível com esta tela. Use uma radiografia frontal de tórax DICOM DX/CR, JPEG ou PNG.', 'This exam is unsupported on this page. Use a frontal chest X-ray in DICOM DX/CR, JPEG or PNG format.'],
-  uploadProgress: ['Carregamento local', 'Local upload'],
-  uploadTitle: ['Carregar radiografia', 'Load X-ray'],
-  uploading: ['Lendo arquivo nesta estação…', 'Reading the file on this workstation…'],
-  use: ['Usar imagem', 'Use image'],
-  validating: ['Preparando prévia…', 'Preparing preview…'],
-  warning: ['Pré-laudo experimental. Revise a imagem e o texto antes de qualquer uso clínico.', 'Experimental draft. Review the image and text before any clinical use.'],
-};
-
-const text = key => strings[key][language() === 'pt-BR' ? 0 : 1];
 const errorKeys = {
   insufficient_disk: 'disk',
   insufficient_memory: 'memory',
@@ -101,10 +41,6 @@ function updateText() {
     element.setAttribute(element.tagName === 'IMG' ? 'alt' : 'aria-label', text(element.dataset.rxLabel));
   }
   document.title = text('title');
-  const heading = document.querySelector('.rx-shell .ui-fn-tag > span[data-radai-frase]');
-  const subtitle = document.querySelector('.rx-shell .ui-fn-frase');
-  if (heading) heading.textContent = text('title');
-  if (subtitle) subtitle.textContent = text('subtitle');
   render();
 }
 
@@ -160,7 +96,13 @@ function render() {
   $('result').hidden = !result;
   if ($('result').textContent !== (result?.text ?? '')) $('result').textContent = result?.text ?? '';
   $('model-used').hidden = !result?.model;
-  $('model-used').textContent = result?.model ? text('modelUsed') + ' · ' + result.model : '';
+  const modelLabel = result?.model ? text('modelUsed') + ' · ' + result.model : '';
+  const draftLanguage = result?.requestedLanguage
+    ? new Intl.DisplayNames([language()], {type: 'language'}).of(result.requestedLanguage)
+    : '';
+  $('model-used').textContent = draftLanguage
+    ? modelLabel + ' · ' + text('draftLanguage') + ' · ' + draftLanguage
+    : modelLabel;
   progress($('report-progress'), generating);
   $('error').hidden = !reportError;
   $('error').textContent = reportError ? text(reportError) : '';
@@ -381,7 +323,11 @@ $('generate').addEventListener('click', async () => {
       body: preview.png,
     });
     if (typeof draft.text !== 'string' || !draft.text.trim()) throw new Error('empty_result');
-    result = {text: draft.text, model: typeof draft.model === 'string' ? draft.model : ''};
+    result = {
+      text: draft.text,
+      model: typeof draft.model === 'string' ? draft.model : '',
+      requestedLanguage: typeof draft.requested_language === 'string' ? draft.requested_language : '',
+    };
   } catch (error) {
     reportError = errorKey(error.message, error.message === 'http_409' ? 'busy' : 'reportError');
   } finally {
