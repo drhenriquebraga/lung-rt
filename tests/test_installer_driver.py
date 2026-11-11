@@ -52,7 +52,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.19\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.20\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -62,7 +62,7 @@ class DriverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.19"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.20"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -343,9 +343,13 @@ class PowerShellLayoutTests(unittest.TestCase):
             source.mkdir()
             launcher=source/'START_HERE.cmd'
             launcher.write_bytes((ROOT/'installer/START_HERE.cmd').read_bytes())
-            script = r"""$ErrorActionPreference='Stop'; $text=[IO.File]::ReadAllText($env:LUNG_TEST_LAUNCHER);$body=($text -split '(?m)^# RADAI_BOOTSTRAP_POWERSHELL\r?$',2)[1];$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($body,[ref]$tokens,[ref]$errors);if($errors.Count){throw($errors|Out-String)};$ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)|ForEach-Object{Invoke-Expression $_.Extent.Text};function Select-InstallerZip([string]$Product){Write-Host 'ZIP_SELECTION_REQUESTED';return $null};$result=Invoke-InstallerBootstrap -SourceFolder $env:LUNG_TEST_SOURCE -Product 'lung-rt';if($result -ne 0){exit 1}"""
-            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',script],
-                                  env={**os.environ,'LUNG_TEST_LAUNCHER':str(launcher),'LUNG_TEST_SOURCE':str(source)},
+            from test_starter_recovery import recovery_script
+            body=recovery_script()
+            first=body.index('function Select-InstallerZip {')
+            last=body.index('function SafePath(',first)
+            script=root/'cancel-test.ps1'
+            script.write_text(body[:first]+"function Select-InstallerZip { Write-Host 'ZIP_SELECTION_REQUESTED'; return $null }\n"+body[last:],encoding='utf8')
+            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(script)],
                                   capture_output=True,text=True,timeout=15)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertEqual(result.stdout.count('ZIP_SELECTION_REQUESTED'),1)
