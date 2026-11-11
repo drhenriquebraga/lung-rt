@@ -35,6 +35,10 @@ def fake_package(path,resources=False):
     payload=b"synthetic resource; never a model"
     recipe={"schema":"lung-rt/resource-recipe/1","files":[{"path":"models/nv-reason-ct-int4/test.data","size":len(payload),"sha256":hashlib.sha256(payload).hexdigest(),"url":"https://invalid.test/synthetic-only"}] if resources else []}
     data={"code/module.json":json.dumps({"schema":"lung-rt/plugin-manifest/1","id":"lung-rt","version":"1.0.0","host_contract":"local-suite/plugins/1","host_min_version":"8.14"}).encode(),"code/catalog/resource_recipe.json":json.dumps(recipe).encode(),"code/catalog/consent.json":json.dumps(SDK.CONSENT_POLICY).encode()}
+    xray={"schema":"lung-rt/xray-resources/1","model_id":"google/medgemma-1.5-4b-it","revision":"a"*40}
+    for key in ('runtime','model','mmproj'):
+        xray[key]={"filename":key+'.test',"size":len(payload),"sha256":hashlib.sha256(payload).hexdigest(),"url":"https://invalid.test/synthetic-only"}
+    data['code/catalog/xray_resources.json']=json.dumps(xray).encode()
     data["code/integration/local_suite.py"]=b"# synthetic test-only adapter; never executed\n"
     entries=[]
     for name,value in data.items():
@@ -48,7 +52,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.16\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.17\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -56,9 +60,9 @@ class DriverTests(unittest.TestCase):
             self.assertEqual(runtime.read_bytes(),b"synthetic sentinel")
     def test_old_suite_is_not_modified_or_prepared(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.15\n")
+            root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.16"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.17"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -119,6 +123,12 @@ class DriverTests(unittest.TestCase):
                 DRIVER.offline(target,False);download.assert_not_called()
             self.assertEqual((target/'code/module.json').read_bytes(),(source/'code/module.json').read_bytes())
             self.assertTrue((target/'release-manifest.json').is_file())
+            archive=target.with_suffix('.zip')
+            self.assertTrue(archive.is_file())
+            with zipfile.ZipFile(archive) as zip:
+                self.assertIn('code/module.json',zip.namelist())
+                self.assertIn('release-manifest.json',zip.namelist())
+                self.assertIsNone(zip.testzip())
     def test_offline_resources_use_manifest_hash_and_progress_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp=Path(tmp);source=tmp/'source';pin,payload=fake_package(source,True);target=tmp/'offline';seen=[]
@@ -127,6 +137,60 @@ class DriverTests(unittest.TestCase):
             with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({pin})),patch.object(SDK,'_download',side_effect=download),patch.object(DRIVER,'say'):
                 DRIVER.offline(target,True)
             self.assertEqual(seen[0][2],hashlib.sha256(payload).hexdigest());self.assertEqual((target/'resources/models/nv-reason-ct-int4/test.data').read_bytes(),payload)
+            self.assertEqual(len(seen),4)
+            for name in ('runtime.test','model.test','mmproj.test'):
+                self.assertEqual((target/'resources/xray'/('a'*40)/name).read_bytes(),payload)
+            self.assertFalse(any(target.rglob('license.json')))
+
+    def test_offline_reuses_verified_suite_assets_without_downloading_runtime_or_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp=Path(tmp);source=tmp/'source';pin,payload=fake_package(source,True);target=tmp/'offline'
+            suite=tmp/'Suite with spaces';plugin=suite/'Plugins/LUNG RT';ct=plugin/'resources/existing'
+            model=ct/'models/nv-reason-ct-int4/test.data';model.parent.mkdir(parents=True);model.write_bytes(payload)
+            (plugin/'installation.json').write_text(json.dumps({'resources_path':'resources/existing'}))
+            for name in ('runtime.test','model.test','mmproj.test'):
+                file=plugin/'data/xray'/('a'*40)/name;file.parent.mkdir(parents=True,exist_ok=True);file.write_bytes(payload)
+            runtime=suite/'python/python.exe';runtime.parent.mkdir();runtime.write_bytes(b'never replaced')
+            with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({pin})),patch.object(SDK,'_download') as download,patch.object(DRIVER,'say'):
+                DRIVER.offline(target,True,suite_root=suite);download.assert_not_called()
+            self.assertEqual((target/'resources/models/nv-reason-ct-int4/test.data').read_bytes(),payload)
+            self.assertEqual(runtime.read_bytes(),b'never replaced')
+            self.assertFalse(any(target.rglob('python.exe')))
+            self.assertFalse(any(target.rglob('license.json')))
+            marker=json.loads((target/'.lung-offline-preparation.json').read_text())
+            self.assertTrue(marker['complete']);self.assertEqual(marker['resource_bytes'],4*len(payload))
+
+    def test_offline_reuses_destination_but_replaces_corrupt_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp=Path(tmp);source=tmp/'source';pin,payload=fake_package(source,True);target=tmp/'offline'
+            with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({pin})),patch.object(SDK,'_download',side_effect=lambda urls,dest,*args: (dest.parent.mkdir(parents=True,exist_ok=True),dest.write_bytes(payload))),patch.object(DRIVER,'say'):
+                DRIVER.offline(target,True)
+            damaged=target/'resources/xray'/('a'*40)/'model.test';damaged.write_bytes(b'X'*len(payload))
+            def repair(urls,dest,size,digest,progress):
+                self.assertEqual(dest,damaged);dest.write_bytes(payload)
+            with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({pin})),patch.object(SDK,'_download',side_effect=repair) as download,patch.object(DRIVER,'say'):
+                DRIVER.offline(target,True);self.assertEqual(download.call_count,1)
+
+    def test_offline_cli_passes_selected_suite_for_cache_reuse(self):
+        with patch.object(sys,'argv',['install.py','--suite-root','SYNTHETIC','--offline','DEST','--reports','--accept-terms']),patch.object(DRIVER,'offline') as offline:
+            DRIVER.main();offline.assert_called_once_with(Path('DEST'),True,suite_root=Path('SYNTHETIC'))
+
+    def test_offline_migrates_only_a_trusted_prior_package_and_reuses_its_resources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp=Path(tmp);old=tmp/'old';old_pin,payload=fake_package(old,True);target=tmp/'offline'
+            with patch.object(DRIVER,'source_root',return_value=old),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({old_pin})),patch.object(SDK,'_download',side_effect=lambda urls,dest,*args:(dest.parent.mkdir(parents=True,exist_ok=True),dest.write_bytes(payload))),patch.object(DRIVER,'say'):
+                DRIVER.offline(target,True)
+            source=tmp/'new';new_pin,_=fake_package(source,True)
+            module=source/'code/module.json';spec=json.loads(module.read_text());spec['version']='1.0.1';module.write_text(json.dumps(spec))
+            raw=json.loads((source/'release-manifest.json').read_text());raw['version']='1.0.1'
+            entry=next(e for e in raw['files'] if e['path']=='code/module.json');entry.update(size=module.stat().st_size,sha256=hashlib.sha256(module.read_bytes()).hexdigest())
+            (source/'release-manifest.json').write_text(json.dumps(raw));new_pin=SDK._sha(source/'release-manifest.json')
+            with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({old_pin,new_pin})),patch.object(SDK,'_download') as download,patch.object(DRIVER,'say'):
+                DRIVER.offline(target,True);download.assert_not_called()
+            self.assertEqual(json.loads((target/'code/module.json').read_text())['version'],'1.0.1')
+            marker=target/'.lung-offline-preparation.json';data=json.loads(marker.read_text());data['code_pin']='0'*64;marker.write_text(json.dumps(data))
+            with patch.object(DRIVER,'source_root',return_value=source),patch.object(SDK,'TRUSTED_CODE_INVENTORIES',frozenset({old_pin,new_pin})),self.assertRaisesRegex(ValueError,'vazia'):
+                DRIVER.offline(target,True)
 
 
 class ProfileTests(unittest.TestCase):

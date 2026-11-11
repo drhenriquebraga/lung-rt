@@ -1,6 +1,6 @@
-# Host contract — LUNG RT 1.1
+# Host contract — LUNG RT 1.1.2
 
-Discovery: module.json schema lung-rt/plugin-manifest/1, id lung-rt, host >=8.15.
+Discovery: module.json schema lung-rt/plugin-manifest/1, id lung-rt, host >=8.17.
 Adapter integration/local_suite.py:mount(app, code=None, *, host_services=None)
 imports app/lung_rt/plugin.py:mount(app, host_services). It does not redefine /lung,
 /lung/nodulos, /lung/4d or /api/lung/*.
@@ -40,3 +40,20 @@ Preview accepts one local DX/CR chest radiograph, PNG or JPEG and returns a sani
 The optional MedGemma resources are pinned in catalog/xray_resources.json and prepared
 only with separate license acceptance. A transient report acquires the lung-xray-report
 queue owner and does not enter the CT report store.
+
+The status response has `capabilities`: `rastreio`, `nodulos`, `4d` are true for
+the code-only plugin. `report_ct.resources_ready` requires the CT model files and
+both ORT runtime assets; `report_rx.resources_ready` requires the three pinned
+MedGemma/runtime files. These flags describe available assets, independently of
+hardware and the model license receipt. Inference still verifies SHA256, consent,
+hardware and the local queue before executing. The RX status `ready` additionally
+requires its local HAI-DEF receipt; the offline bundle never creates that receipt.
+
+Native `Pacote para levar` emits a folder and an adjacent ZIP with identical known
+package entries, rooted at `code/`, `release-manifest.json` and optional `resources/`.
+CT resources keep `resources/models/...` and `resources/runtimes/...`; RX uses
+`resources/xray/<pinned-revision>/<filename>`. The host importer verifies sizes and
+hashes and copies RX into `Plugins/LUNG RT/data/xray/<pinned-revision>/`, without a
+license receipt. It must support both a folder source and a ZIP source. Preparing
+with `--reports` includes CT + RX (~6.38 GB), reusing matching destination/Suite
+assets. This routine does not download or package Python or TotalSegmentator weights.

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -174,7 +175,87 @@ def finish_new(root,reports):
     say('4/4 Abrindo LUNG RT. Os demais módulos ficam disponíveis ao instalar a suíte completa.')
 
 
-def offline(destination,reports):
+def _offline_resources(package):
+    recipe=json.loads(package.read('code/catalog/resource_recipe.json'))
+    resources=list(recipe['files'])
+    if not resources or any(not item['path'].startswith(('models/','runtimes/')) for item in resources):
+        raise ValueError('Receita dos recursos CT incompleta.')
+    xray=json.loads(package.read('code/catalog/xray_resources.json'))
+    if xray.get('schema')!='lung-rt/xray-resources/1' or not re.fullmatch('[0-9a-f]{40}',xray.get('revision','')):
+        raise ValueError('Receita dos recursos RX incompleta.')
+    for key in ('runtime','model','mmproj'):
+        item=dict(xray[key]);item['path']='xray/'+xray['revision']+'/'+item['filename'];resources.append(item)
+    seen=set()
+    for item in resources:
+        if item['path'].casefold() in seen or type(item['size']) is not int or item['size']<=0 or not re.fullmatch('[0-9a-f]{64}',item['sha256']):
+            raise ValueError('Receita sem integridade publicada.')
+        SDK._inside(Path(tempfile.gettempdir())/'lung-resource-validation',item['path'])
+        seen.add(item['path'].casefold())
+    return resources
+
+
+def _resource_matches(path,item):
+    try:return path.is_file() and path.stat().st_size==item['size'] and SDK._sha(path)==item['sha256']
+    except OSError:return False
+
+
+def _offline_caches(suite_root):
+    roots=[source_root()/'resources']
+    if suite_root:
+        plugin=Path(suite_root)/'Plugins/LUNG RT'
+        try:
+            state=SDK._json(SDK._inside(plugin,'installation.json'))
+            if state.get('resources_path'):roots.append(SDK._inside(plugin,state['resources_path']))
+        except (OSError,ValueError):pass
+        roots.extend((plugin,plugin/'data'))
+    return roots
+
+
+def _prepare_offline_resource(destination,item,caches):
+    target=SDK._inside(destination/'resources',item['path'])
+    if _resource_matches(target,item):
+        say('Reaproveitando recurso conferido no destino: '+item['path']);return
+    for cache in caches:
+        try:candidate=SDK._inside(cache,item['path'])
+        except ValueError:continue
+        if not _resource_matches(candidate,item):continue
+        target.parent.mkdir(parents=True,exist_ok=True)
+        descriptor,name=tempfile.mkstemp(prefix='.lung-resource-',dir=str(target.parent));os.close(descriptor)
+        temporary=Path(name)
+        try:
+            shutil.copyfile(candidate,temporary)
+            if not _resource_matches(temporary,item):raise ValueError('O recurso mudou durante a cópia. Tente novamente.')
+            os.replace(temporary,target)
+        finally:
+            if temporary.exists():temporary.unlink()
+        say('Recurso local conferido e copiado: '+item['path']);return
+    say('Preparando recurso offline: '+item['path'])
+    SDK._download(item.get('urls') or [item['url']],target,item['size'],item['sha256'],
+        lambda v:say('Download %.1f / %.1f MB'%(v.get('downloaded_bytes',0)/1024**2,v.get('total_bytes',1)/1024**2)))
+    if not _resource_matches(target,item):raise ValueError('O recurso baixado não confere.')
+
+
+def _offline_zip(destination,paths):
+    archive=destination.parent/(destination.name+'.zip')
+    descriptor,name=tempfile.mkstemp(prefix='.lung-offline-',suffix='.zip.part',dir=str(destination.parent));os.close(descriptor)
+    temporary=Path(name)
+    try:
+        say('Gravando ZIP para levar. Os modelos já conferidos não serão baixados novamente...')
+        with zipfile.ZipFile(temporary,'w',zipfile.ZIP_DEFLATED,compresslevel=1,allowZip64=True) as out:
+            for relative in paths:
+                file=SDK._inside(destination,relative)
+                if relative.startswith('resources/'):say('Adicionando ao ZIP: '+relative)
+                out.write(file,relative,compress_type=zipfile.ZIP_STORED if relative.startswith('resources/') else zipfile.ZIP_DEFLATED)
+        with zipfile.ZipFile(temporary) as check:
+            if check.testzip():raise ValueError('O ZIP offline não passou na verificação. A pasta permanece para retomar.')
+        os.replace(temporary,archive)
+        say('ZIP offline conferido: '+str(archive))
+        return archive
+    finally:
+        if temporary.exists():temporary.unlink()
+
+
+def offline(destination,reports,suite_root=None):
     destination=Path(destination).absolute()
     package=SDK.Package(source_root())
     try:
@@ -183,7 +264,17 @@ def offline(destination,reports):
         if destination.exists() and any(destination.iterdir()):
             try:previous=SDK._json(marker,8192)
             except (OSError,ValueError):previous={}
-            if previous.get('schema')!='lung-rt/offline-preparation/1' or previous.get('code_pin')!=digest:
+            resumable=previous.get('schema')=='lung-rt/offline-preparation/1' and previous.get('code_pin')==digest
+            if not resumable and previous.get('schema')=='lung-rt/offline-preparation/1':
+                prior=None
+                try:
+                    prior=SDK.Package(destination)
+                    _,prior_digest,_=SDK._inventory(prior)
+                    resumable=prior_digest==previous.get('code_pin')
+                except (OSError,ValueError,KeyError):pass
+                finally:
+                    if prior:prior.close()
+            if not resumable:
                 raise ValueError('Escolha uma pasta vazia ou retome a preparação deste mesmo pacote.')
             say('Retomando a preparação; arquivos íntegros serão reaproveitados.')
         destination.mkdir(parents=True,exist_ok=True)
@@ -193,15 +284,20 @@ def offline(destination,reports):
             if hashlib.sha256(data).hexdigest()!=entry['sha256']:raise ValueError('Código incompleto.')
             target=SDK._inside(destination,entry['path']);target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
         (destination/'release-manifest.json').write_bytes(raw)
+        resources=_offline_resources(package) if reports else []
         if reports:
-            recipe=json.loads(package.read('code/catalog/resource_recipe.json'))
-            for item in recipe['files']:
-                say('Preparando recurso offline: '+item['path'])
-                SDK._download(item.get('urls') or [item['url']],SDK._inside(destination/'resources',item['path']),item['size'],item['sha256'],
-                    lambda v: say('Download %.1f / %.1f MB'%(v.get('downloaded_bytes',0)/1024**2,v.get('total_bytes',1)/1024**2)))
-        (destination/'LEIA-ME.txt').write_text('Pacote LUNG RT para uma Local Suite compatível com a versão do plugin. Na máquina offline: Configurações > Plugin LUNG RT > Usar instalador ou pacote offline de uma pasta. Selecione esta pasta inteira. Os pesos de segmentação pulmonar devem estar na instalação base. Nenhum Python é substituído.\n',encoding='utf8')
-        SDK._atomic(marker,{'schema':'lung-rt/offline-preparation/1','code_pin':digest,'reports':reports,'complete':True})
-        say('Pacote conferido. Leve a pasta inteira e use a interface da Local Suite para instalar.')
+            say('Pré-laudos locais: NVReason CT INT4 + MedGemma 1.5 4B Q4 (RX). Total: %.2f GB. Recursos existentes serão conferidos e reaproveitados.'%(sum(i['size'] for i in resources)/10**9))
+            caches=_offline_caches(suite_root)
+            for item in resources:_prepare_offline_resource(destination,item,caches)
+        (destination/'LEIA-ME.txt').write_text('Pacote LUNG RT para uma Local Suite compatível com a versão do plugin. Na máquina offline: selecione este ZIP no instalador principal ou use Configurações > LUNG RT > pacote offline de uma pasta. Leve a pasta inteira ou seu ZIP. Os pesos de segmentação pulmonar devem estar na instalação base. Nenhum Python ou peso TotalSegmentator é incluído ou substituído.\n'+('Inclui NVReason CT INT4 e MedGemma 1.5 4B Q4 (RX). A execução dos pré-laudos continua experimental e desligada por padrão. O aceite HAI-DEF do MedGemma deve ser dado pelo usuário na primeira abertura do app de RX; não é transferido neste pacote.\n' if reports else ''),encoding='utf8')
+        completed={'schema':'lung-rt/offline-preparation/1','code_pin':digest,'reports':reports,'complete':True,'resource_bytes':sum(i['size'] for i in resources)}
+        SDK._atomic(marker,completed)
+        paths=[entry['path'] for entry in manifest['files']]+['release-manifest.json','LEIA-ME.txt',marker.name]+['resources/'+item['path'] for item in resources]
+        try:archive=_offline_zip(destination,paths)
+        except BaseException:
+            SDK._atomic(marker,{**completed,'complete':False});raise
+        say('Pacote conferido. Leve o ZIP ou a pasta inteira e use a interface da Local Suite para instalar.')
+        return archive
     finally:package.close()
 
 
@@ -214,7 +310,7 @@ def main():
     parser.add_argument('--stage-plugin',action='store_true')
     args=parser.parse_args()
     if not args.accept_terms:raise ValueError('Leia e aceite os termos no START HERE antes de baixar.')
-    if args.offline:return offline(args.offline,args.reports)
+    if args.offline:return offline(args.offline,args.reports,suite_root=args.suite_root)
     if args.stage_plugin:return finish_new(args.suite_root,args.reports)
     standalone(args.suite_root,args.reports)
 

@@ -299,8 +299,11 @@ class XrayService:
         except (OSError, ValueError):
             return False
 
+    def _resources_ready(self):
+        return bool(self.manifest and not self.invalid_resources and all(self._matches(spec) for spec in self.specs))
+
     def _ready(self):
-        if not self.manifest or self.invalid_resources:
+        if not self._resources_ready():
             return False
         try:
             accepted = _json(self._path("license.json"), limit=2048) == self.receipt
@@ -313,6 +316,7 @@ class XrayService:
             ready = not self.preparing and self._ready()
             return {
                 "ready": ready,
+                "resources_ready": not self.preparing and self._resources_ready(),
                 "preparing": self.preparing,
                 "running": self.running,
                 "error": self.error,

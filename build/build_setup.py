@@ -99,6 +99,7 @@ def package(frozen,suite_setup,host_sdk,destination):
     policy=json.loads((frozen/'code/catalog/consent.json').read_text(encoding='utf8'))
     terms=policy['title']+'\n\n'+'\n\n'.join(policy['clauses'])
     terms+='\n\nA base compacta conserva as licenças Local Suite Apache-2.0, Python PSF e bibliotecas DICOM/TotalSegmentator. Leia LICENSE, NOTICE e catalog/sources.json distribuídos com este instalador. Nenhuma licença substitui as demais.\n'
+    terms+='\nPré-laudos opcionais: NVReason CT INT4 (~3,01 GB, OpenMDW 1.1) e MedGemma 1.5 4B Q4 / RX (~3,37 GB, HAI-DEF), total ~6,38 GB. Leia web/vendor/nvreason/LICENSE-OpenMDW e https://developers.google.com/health-ai-developer-foundations/terms . O pacote para levar não inclui Python, TotalSegmentator ou recibos de aceite do MedGemma. O usuário deve aceitar os termos HAI-DEF na primeira abertura do app de RX, inclusive offline.\n'
     guide=(
         'LUNG RT | Instalação e pacote offline\n\n'
         'Local Suite já instalada: selecione o ZIP do SETUP na tela do LUNG RT.\n'
@@ -106,6 +107,10 @@ def package(frozen,suite_setup,host_sdk,destination):
         'Depois abra START_HERE.cmd na pasta extraída.\n'
         'Para levar o plugin a uma estação sem internet, prepare um pacote offline no START HERE '
         'de uma máquina conectada. Leve a pasta completa e selecione-a na tela do LUNG RT.\n'
+        'O botão Pacote para levar gera a pasta e um ZIP equivalente ao lado dela. '
+        'Com os pré-laudos selecionados, inclui recursos CT + RX (~6,38 GB), '
+        'reutilizando arquivos locais conferidos. O Python e os pesos de segmentação '
+        'permanecem na Local Suite instalada.\n'
     )
     destination.mkdir(parents=True,exist_ok=True)
     output=destination/('LUNG_RT_SETUP_v'+version+'.zip')

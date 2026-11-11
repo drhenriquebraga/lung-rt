@@ -98,9 +98,9 @@ $folder.SetBounds(26,148,604,29);$folder.Text=Join-Path $env:SystemDrive 'RADIOT
 $browse = ButtonAt (SetupText 'browse' 'Pasta…') 639 143 94
 $browse.Add_Click({$dialog=New-Object System.Windows.Forms.FolderBrowserDialog;$dialog.Description=(SetupText 'folderTitle' 'Pasta da Local Suite');$dialog.SelectedPath=$folder.Text;if($dialog.ShowDialog()-eq 'OK'){$folder.Text=$dialog.SelectedPath};$dialog.Dispose()})
 $report = New-Object System.Windows.Forms.CheckBox
-$report.SetBounds(26,190,700,44);$report.Text=(SetupText 'reports' 'Preparar também laudos experimentais locais (~3 GB; WebGPU, GPU ≥ 6 GB)')
+$report.SetBounds(26,185,700,54);$report.Text=(SetupText 'reports' 'Pré-laudos locais CT + RX (~6,38 GB): NVReason CT INT4 + MedGemma 1.5 4B Q4')
 $report.Checked=$false;$form.Controls.Add($report)
-[void](LabelAt (SetupText 'reportDefault' 'No rastreio contínuo, gerar laudos vem desligado (=0). Você poderá ativar depois.') 26 238 705 30)
+[void](LabelAt (SetupText 'reportDefault' 'Laudos desligados (=0). CT: GPU ≥ 6 GB/WebGPU. RX: CPU, RAM ≥ 8 GB.') 26 239 705 30)
 $box=New-Object System.Windows.Forms.RichTextBox
 $box.SetBounds(26,276,707,259);$box.ReadOnly=$true;$box.Text=$terms
 $box.BackColor=[System.Drawing.Color]::FromArgb(19,31,47);$box.ForeColor=$form.ForeColor;$box.DetectUrls=$true
@@ -137,9 +137,10 @@ try {
     Write-Host '1. Conferindo a base e o Python existente...'
     $python=Join-Path $suitePath 'python\python.exe'
     if(-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-        $pyTarget=if($script:chosen -eq 'offline'){Join-Path $env:TEMP ('lung-prepare-python-'+[guid]::NewGuid().ToString('N'))}else{Join-Path $suitePath 'python'}
+        if($script:chosen -eq 'offline'){throw (SetupText 'offlinePython' 'Para montar o pacote, aponte a pasta de uma Local Suite instalada. O preparo offline não baixa Python nem pesos de segmentação.')}
+        $pyTarget=Join-Path $suitePath 'python'
         [void](New-Item -ItemType Directory -Path $pyTarget -Force)
-        if($script:chosen -ne 'offline'){Set-Content -LiteralPath (Join-Path $suitePath '.lung-bootstrap') -Value 'LUNG RT portable runtime preparation' -Encoding ASCII}
+        Set-Content -LiteralPath (Join-Path $suitePath '.lung-bootstrap') -Value 'LUNG RT portable runtime preparation' -Encoding ASCII
         $pyZip=Join-Path $env:TEMP ('lung-python-'+[guid]::NewGuid().ToString('N')+'.zip')
         Write-Host '2. Esta é uma base nova: baixando Python portátil 3.10.11...'
         [System.Net.ServicePointManager]::SecurityProtocol=[System.Net.SecurityProtocolType]::Tls12

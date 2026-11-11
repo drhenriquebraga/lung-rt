@@ -1,4 +1,4 @@
-# LUNG RT 1.1.1
+# LUNG RT 1.1.2
 
 Plugin local único para rastreio de nódulos, acesso ao 4D do ContourLab e pré-laudo
 experimental sob demanda. Instala em Local Suite completa ou no shell compacto
@@ -44,3 +44,14 @@ Documentação do contrato: `docs/HOST_CONTRACT.md`. Licenças: `LICENSE` e `NOT
 Abra **LUNG RT → Laudo de raios X** para visualizar uma radiografia frontal de tórax e gerar um rascunho experimental para revisão humana. A imagem é processada no computador e o fluxo é separado do laudo de TC.
 
 O preparo opcional do MedGemma 1.5 4B quantizado baixa aproximadamente 3,37 GB de recursos depois do aceite dos termos HAI-DEF. O runtime Windows x64 executa em CPU e não altera o Python, o Torch ou o CUDA da Suite. O instalador leve contém apenas o código e o catálogo com as revisões e hashes dos recursos.
+
+### Pacote para levar
+
+No START HERE, selecione a Local Suite instalada e **Pacote para levar**. A rotina
+gera uma pasta e um ZIP equivalente. Ao selecionar os pré-laudos, inclui NVReason
+CT INT4 (~3,01 GB) e MedGemma 1.5 4B Q4 para RX (~3,37 GB), total ~6,38 GB.
+Arquivos no destino e na Suite escolhida são reutilizados somente quando tamanho
+e SHA256 conferem. Python e pesos TotalSegmentator não são incluídos ou baixados
+nessa rotina. Leve o ZIP à clínica e selecione-o no instalador principal ou use a
+pasta em Configurações → LUNG RT. O recibo de aceite HAI-DEF do MedGemma não é
+transferido: o usuário aceita os termos na primeira abertura de RX, inclusive offline.

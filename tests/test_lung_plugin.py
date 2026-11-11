@@ -45,6 +45,20 @@ class StoreTests(unittest.TestCase):
 
 
 class ProviderTests(unittest.TestCase):
+    def test_card_readiness_requires_models_and_runtime_but_not_gpu(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp);(p/'catalog').mkdir();models=p/'models';models.mkdir();payload=b'synthetic-only';(models/'x').write_bytes(payload)
+            (p/'catalog/models.json').write_text(json.dumps({'minimum_gpu_gb':6,'revision':'test','files':[{'path':'x','size':len(payload),'sha256':hashlib.sha256(payload).hexdigest()}]}))
+            recipe={'files':[{'path':'runtimes/nvreason/'+name,'size':len(payload),'sha256':hashlib.sha256(payload).hexdigest()} for name in ('ort-wasm-simd-threaded.asyncify.mjs','ort-wasm-simd-threaded.asyncify.wasm')]}
+            (p/'catalog/resource_recipe.json').write_text(json.dumps(recipe))
+            runtime=p/'runtime';runtime.mkdir()
+            provider=LocalProvider(p,models,lambda:{},runtime)
+            self.assertFalse(provider.assets_ready())
+            for name in ('ort-wasm-simd-threaded.asyncify.mjs','ort-wasm-simd-threaded.asyncify.wasm'):(runtime/name).write_bytes(payload)
+            self.assertTrue(provider.assets_ready())
+            self.assertFalse(provider.preflight(verify=False)['available'])
+            (models/'x').unlink();self.assertFalse(provider.assets_ready())
+
     def test_hardware_guard_and_hash(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp);(p/"catalog").mkdir();models=p/"models";models.mkdir();data=b"synthetic model bytes";(models/"x").write_bytes(data)
@@ -206,6 +220,10 @@ class APITests(unittest.TestCase):
                 state=client.get('/api/lung-plugin/state');self.assertEqual(state.headers["cache-control"],"no-store")
                 self.assertFalse(state.json()["screening"]["active"])
                 self.assertEqual(state.json()["defaults"]["generate_reports"],0)
+                capabilities=client.get('/api/lung-plugin/status').json()['capabilities']
+                self.assertTrue(all(capabilities[name] for name in ('rastreio','nodulos','4d')))
+                self.assertFalse(capabilities['report_ct']['resources_ready'])
+                self.assertFalse(capabilities['report_rx']['resources_ready'])
             rt.reports.monitor.join(3)
 
 

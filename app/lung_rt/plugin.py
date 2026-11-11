@@ -231,12 +231,15 @@ def mount(app, host_services):
         return render_xray(runtime)
 
     from .xray import mount_xray_api
-    mount_xray_api(app,runtime)
+    xray=mount_xray_api(app,runtime)
 
     @app.get("/api/lung-plugin/status")
     def status():
         from . import __version__
-        return {"version":__version__,"capability":runtime.provider.preflight(verify=False),**runtime.state()}
+        return {"version":__version__,"capability":runtime.provider.preflight(verify=False),
+                "capabilities":{"rastreio":True,"nodulos":True,"4d":True,
+                                "report_ct":{"resources_ready":runtime.provider.assets_ready()},
+                                "report_rx":{"resources_ready":xray.status()['resources_ready']}},**runtime.state()}
 
     @app.get("/api/lung-plugin/state")
     def state(): return runtime.state()

@@ -183,6 +183,20 @@ class XrayApiTests(unittest.TestCase):
         self.assertEqual((response.status_code, response.json()["error"]), (403, "license_required"))
         self.assertFalse(self.service.root.exists())
 
+    def test_offline_assets_enable_card_without_fabricating_model_license_acceptance(self):
+        self.service.root.mkdir(parents=True)
+        for name,content in self.payload.items():
+            (self.service.root/name).write_bytes(content)
+        state=self.client.get(PREFIX+'/status').json()
+        self.assertTrue(state['resources_ready'])
+        self.assertFalse(state['ready'])
+        self.assertFalse((self.service.root/'license.json').exists())
+        with patch.object(xray,'_download') as download:
+            self.service.preparing=True
+            self.service._prepare()
+            download.assert_not_called()
+        self.assertTrue(self.service.status()['ready'])
+
     def test_preview_enforces_stream_size_and_report_rejects_wrong_content(self):
         with patch.object(xray, "MAX_BODY", 32):
             response = self.client.post(PREFIX + "/preview", headers=HEADERS, content=iter([b"X" * 20, b"Y" * 20]))

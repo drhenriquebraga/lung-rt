@@ -78,6 +78,13 @@ class LocalProvider:
         return {"ready":not problems,"verified":verify and not problems,"problems":problems,
                 "bytes":sum(f["size"] for f in self.manifest["files"]),"revision":self.manifest["revision"]}
 
+    def assets_ready(self):
+        if not self.resources(verify=False)['ready']:return False
+        for name in ('ort-wasm-simd-threaded.asyncify.mjs','ort-wasm-simd-threaded.asyncify.wasm'):
+            try:self.runtime_file(name,verify=False)
+            except (OSError,ValueError):return False
+        return True
+
     def preflight(self, verify=True):
         gpu = self.hardware()
         minimum = self.manifest["minimum_gpu_gb"] * 1000**3
