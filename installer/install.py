@@ -112,12 +112,22 @@ def install_through_host(root,reports):
             raise ValueError('Abra a Local Suite e use Configurações > LUNG RT > pacote de uma pasta.')
     if state.get('suite_fingerprint') != SDK.suite_identity(root):
         raise ValueError('A porta está ocupada por outra instalação da Local Suite. Feche a outra instância ou confira a pasta escolhida.')
+    if not reports:
+        consent(root)
+        say('As funções pulmonares da base já estão disponíveis. Nenhum peso adicional foi solicitado.')
+        start_suite(root)
+        return
     token=state['token']
-    inspected=_api(port,'/api/plugins/lung-rt/local/inspect',{'folder':str(source_root())},token)
     policy=SDK.CONSENT_POLICY
+    body={'operation':'weights','reports':True,
+          'consent':{'accepted':True,'version':policy['version'],'digest':policy['digest']}}
+    source=SDK.inspect_local_source(str(source_root()))
+    if source.get('offline'):
+        inspected=_api(port,'/api/plugins/lung-rt/local/inspect',
+                       {'folder':str(source_root()),'operation':'weights'},token)
+        body['source_id']=inspected['source_id']
     say('Preparando encerramento controlado. O PowerShell mostrará cada etapa e reabrirá a suíte.')
-    _api(port,'/api/plugins/lung-rt/install',{'source_id':inspected['source_id'],'reports':reports,
-         'consent':{'accepted':True,'version':policy['version'],'digest':policy['digest']}},token)
+    _api(port,'/api/plugins/lung-rt/install',body,token)
     say('Manutenção iniciada. Acompanhe a janela do instalador externo.')
 
 
@@ -156,10 +166,21 @@ def standalone(root,reports):
         shutil.rmtree(work)
 
 
+def prepare_host_code(root):
+    candidates=(root/'radai_plugin_bootstrap.py',root/'app/radai_plugin_bootstrap.py')
+    bootstrap=next((path for path in candidates if path.is_file()),None)
+    if bootstrap is None:
+        raise ValueError('O código da base está incompleto. Execute o instalador principal da Local Suite.')
+    result=subprocess.run([sys.executable,'-I','-B',str(bootstrap),'--suite-root',str(root),
+                           '--base-only','--plugin','lung-rt'],cwd=str(root))
+    if result.returncode:
+        raise ValueError('A Local Suite não conseguiu preparar seu código LUNG RT. Execute o instalador principal da base.')
+
+
 def finish_new(root,reports):
     say('2/4 Usando o Python existente da Local Suite.')
+    prepare_host_code(root)
     consent(root)
-    plan=SDK.prepare_external_plan({'reports':reports},source_folder=str(source_root()))
     last=[0.0]
     def progress(value):
         now=time.monotonic()
@@ -169,7 +190,12 @@ def finish_new(root,reports):
               'downloading':'Baixando recursos novos','activating':'Ativando LUNG RT','complete':'LUNG RT conferido'}.get(value.get('stage'),'Preparando')
         if value.get('total_bytes'):text+=' %.1f / %.1f MB'%(value.get('downloaded_bytes',0)/1024**2,value['total_bytes']/1024**2)
         say(text)
-    SDK.run_external(plan,progress,suite_root=root,host_python=sys.executable)
+    if reports:
+        active,_=SDK._active_code(SDK._inside(root,'Plugins/LUNG RT'))
+        description=SDK.inspect_local_source(str(source_root()))
+        source=str(source_root()) if description.get('offline') else None
+        plan=SDK.prepare_external_plan({'resources_only':True,'installed_version':active['active_version']},source_folder=source)
+        SDK.run_external(plan,progress,suite_root=root,host_python=sys.executable)
     say('3/4 Plugin instalado. O rastreio inicia com laudos desligados.')
     start_suite(root)
     say('4/4 Abrindo LUNG RT. Os demais módulos ficam disponíveis ao instalar a suíte completa.')
@@ -310,7 +336,7 @@ def main():
     parser.add_argument('--stage-plugin',action='store_true')
     args=parser.parse_args()
     if not args.accept_terms:raise ValueError('Leia e aceite os termos no START HERE antes de baixar.')
-    if args.offline:return offline(args.offline,args.reports,suite_root=args.suite_root)
+    if args.offline:return offline(args.offline,True,suite_root=args.suite_root)
     if args.stage_plugin:return finish_new(args.suite_root,args.reports)
     standalone(args.suite_root,args.reports)
 

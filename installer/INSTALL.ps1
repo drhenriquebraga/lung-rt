@@ -91,7 +91,7 @@ function ButtonAt([string]$text,[int]$x,[int]$y,[int]$w) {
 }
 $header = LabelAt 'LUNG RT' 24 18 700 42
 $header.Font = New-Object System.Drawing.Font('Segoe UI',24,[System.Drawing.FontStyle]::Bold)
-[void](LabelAt (SetupText 'intro' 'Instale o plugin ou prepare um pacote offline. Na outra estação, selecione a pasta do pacote na Local Suite.') 26 68 710 48)
+[void](LabelAt (SetupText 'intro' 'Escolha os pesos extras para instalar. O Pacote para levar inclui todos os pesos CT + RX (~6,38 GB). O código é atualizado pela Local Suite.') 26 68 710 48)
 [void](LabelAt (SetupText 'suiteFolder' 'Pasta da Local Suite (o Python existente será reutilizado)') 26 119 700 25)
 $folder = New-Object System.Windows.Forms.TextBox
 $folder.SetBounds(26,148,604,29);$folder.Text=Join-Path $env:SystemDrive 'RADIOTERAPIA_AI\LOCAL_SUITE';$form.Controls.Add($folder)

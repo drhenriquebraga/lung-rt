@@ -52,7 +52,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.20\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.21\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -62,7 +62,7 @@ class DriverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.20"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.21"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,11 +97,28 @@ class DriverTests(unittest.TestCase):
                 if path=='/api/plugins/lung-rt':return {"suite_fingerprint":fingerprint,"token":"synthetic-token"}
                 if path.endswith('/local/inspect'):return {"source_id":"opaque-source"}
                 return {"state":"external_install"}
-            with patch.object(DRIVER,"_api",side_effect=api),patch.object(DRIVER,"source_root",return_value=root/'package'),patch.object(DRIVER,"say"):
+            with patch.object(DRIVER,"_api",side_effect=api),patch.object(DRIVER,"source_root",return_value=root/'package'),patch.object(SDK,'inspect_local_source',return_value={'offline':True}),patch.object(DRIVER,"say"):
                 DRIVER.install_through_host(root,True)
             self.assertEqual(len(seen),3)
             body=seen[-1][2];self.assertEqual(body['source_id'],'opaque-source');self.assertTrue(body['reports']);self.assertEqual(seen[-1][3],'synthetic-token')
             self.assertEqual(body['consent']['digest'],SDK.CONSENT_POLICY['digest'])
+            self.assertEqual(body['operation'],'weights');self.assertEqual(seen[-2][2]['operation'],'weights')
+    def test_online_setup_requests_only_installed_code_resources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);seen=[]
+            def api(port,path,body=None,token=''):
+                seen.append((path,body,token))
+                if path=='/api/plugins/lung-rt':return {'suite_fingerprint':SDK.suite_identity(root),'token':'synthetic'}
+                return {}
+            with patch.object(DRIVER,'_api',side_effect=api),patch.object(SDK,'inspect_local_source',return_value={'offline':False}),patch.object(DRIVER,'say'):
+                DRIVER.install_through_host(root,True)
+            self.assertEqual(len(seen),2);self.assertNotIn('source_id',seen[-1][1]);self.assertEqual(seen[-1][1]['operation'],'weights')
+    def test_reports_not_selected_never_starts_optional_model_preparation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            with patch.object(DRIVER,'_api',return_value={'suite_fingerprint':SDK.suite_identity(root),'token':'synthetic'}) as api,patch.object(SDK,'inspect_local_source') as inspect,patch.object(DRIVER,'start_suite'),patch.object(DRIVER,'say'):
+                DRIVER.install_through_host(root,False)
+            self.assertEqual(api.call_count,1);inspect.assert_not_called()
     def test_cli_acceptance_is_required_before_any_side_effect(self):
         with patch.object(sys,'argv',['install.py','--suite-root','SYNTHETIC']),patch.object(DRIVER,'standalone') as install,patch.object(DRIVER,'offline') as offline:
             with self.assertRaisesRegex(ValueError,'aceite'):DRIVER.main()
@@ -112,10 +129,30 @@ class DriverTests(unittest.TestCase):
             def run(plan,progress,**kwargs):
                 self.assertEqual(kwargs['host_python'],sys.executable);self.assertEqual(kwargs['suite_root'],root)
                 progress({'stage':'downloading','downloaded_bytes':1048576,'total_bytes':2097152});progress({'stage':'activating'});progress({'stage':'complete'})
-            with patch.object(SDK,'prepare_external_plan',return_value={'schema':'synthetic'}) as prepare,patch.object(SDK,'run_external',side_effect=run),patch.object(DRIVER,'start_suite') as start,patch.object(DRIVER,'say',side_effect=messages.append),patch.object(DRIVER.time,'monotonic',return_value=100):
-                DRIVER.finish_new(root,False)
+            with patch.object(DRIVER,'prepare_host_code') as base,patch.object(SDK,'_active_code',return_value=({'active_version':'1.1.4'},root)),patch.object(SDK,'inspect_local_source',return_value={'offline':False}),patch.object(SDK,'prepare_external_plan',return_value={'schema':'synthetic'}) as prepare,patch.object(SDK,'run_external',side_effect=run),patch.object(DRIVER,'start_suite') as start,patch.object(DRIVER,'say',side_effect=messages.append),patch.object(DRIVER.time,'monotonic',return_value=100):
+                DRIVER.finish_new(root,True)
+                base.assert_called_once_with(root)
+                self.assertTrue(prepare.call_args.args[0]['resources_only']);self.assertEqual(prepare.call_args.args[0]['installed_version'],'1.1.4')
+                self.assertIsNone(prepare.call_args.kwargs['source_folder'])
             self.assertTrue(any('1.0 / 2.0 MB' in m for m in messages));start.assert_called_once_with(root)
             receipt=json.loads((root/'Plugins/LUNG RT/config/consent.json').read_text());self.assertEqual(receipt['digest'],SDK.CONSENT_POLICY['digest'])
+    def test_new_base_without_reports_only_opens_app(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(DRIVER,'prepare_host_code'),patch.object(SDK,'prepare_external_plan') as prepare,patch.object(SDK,'run_external') as run,patch.object(DRIVER,'start_suite') as start,patch.object(DRIVER,'say'):
+                DRIVER.finish_new(Path(tmp),False)
+            prepare.assert_not_called();run.assert_not_called();start.assert_called_once()
+    def test_new_base_code_is_prepared_by_suite_installer_not_plugin_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'radai_plugin_bootstrap.py').write_text('# synthetic sentinel')
+            with patch.object(DRIVER.subprocess,'run',return_value=SimpleNamespace(returncode=0)) as run:
+                DRIVER.prepare_host_code(root)
+            command=run.call_args.args[0]
+            self.assertEqual(command[0],sys.executable);self.assertIn(str(root/'radai_plugin_bootstrap.py'),command)
+            self.assertEqual(command[-3:],['--base-only','--plugin','lung-rt'])
+    def test_cli_package_to_take_always_includes_optional_weights(self):
+        with patch.object(sys,'argv',['install.py','--suite-root','SYNTHETIC','--offline','OUTPUT','--accept-terms']),patch.object(DRIVER,'offline') as offline:
+            DRIVER.main()
+            self.assertTrue(offline.call_args.args[1])
     def test_offline_code_only_is_verified_without_download(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp=Path(tmp);source=tmp/'source';pin,_=fake_package(source);target=tmp/'offline'

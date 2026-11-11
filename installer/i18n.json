@@ -1,6 +1,6 @@
 {
   "pt-BR": {
-    "intro": "Instale o plugin ou prepare um pacote offline. Na outra estação, selecione a pasta do pacote na Local Suite.",
+    "intro": "Escolha os pesos extras para instalar. O Pacote para levar inclui todos os pesos CT + RX (~6,38 GB). O código é atualizado pela Local Suite.",
     "suiteFolder": "Pasta da Local Suite (o Python existente será reutilizado)",
     "browse": "Pasta…",
     "folderTitle": "Pasta da Local Suite",
@@ -15,7 +15,7 @@
     "offlinePython": "Para montar o pacote, aponte uma Local Suite instalada. O preparo offline não baixa Python nem pesos de segmentação."
   },
   "en": {
-    "intro": "Install the plugin or prepare an offline package. On the other workstation, select the package folder in Local Suite.",
+    "intro": "Choose the extra weights to install. Package to take includes all CT + X-ray weights (~6.38 GB). Local Suite updates the code.",
     "suiteFolder": "Local Suite folder (reuses the existing Python)",
     "browse": "Browse…",
     "folderTitle": "Local Suite folder",
@@ -30,7 +30,7 @@
     "offlinePython": "Select an installed Local Suite to prepare this package. Offline preparation does not download Python or segmentation weights."
   },
   "de": {
-    "intro": "Installieren Sie das Plug-in oder bereiten Sie ein Offline-Paket vor. Wählen Sie auf der anderen Station den Paketordner in Local Suite aus.",
+    "intro": "Zusätzliche Modellgewichte zur Installation wählen. Das Offline-Paket enthält alle CT- und Röntgengewichte (~6,38 GB). Den Code aktualisiert Local Suite.",
     "suiteFolder": "Local-Suite-Ordner (verwendet vorhandenes Python)",
     "browse": "Ordner…",
     "folderTitle": "Local-Suite-Ordner",
@@ -45,7 +45,7 @@
     "offlinePython": "Wählen Sie eine installierte Local Suite. Die Offline-Vorbereitung lädt weder Python noch Segmentierungsgewichte herunter."
   },
   "es": {
-    "intro": "Instale el complemento o prepare un paquete sin conexión. En la otra estación, seleccione la carpeta del paquete en Local Suite.",
+    "intro": "Elija los pesos adicionales que desea instalar. El paquete para llevar incluye todos los pesos de TC y RX (~6,38 GB). Local Suite actualiza el código.",
     "suiteFolder": "Carpeta de Local Suite (se reutiliza el Python existente)",
     "browse": "Examinar…",
     "folderTitle": "Carpeta de Local Suite",
@@ -60,7 +60,7 @@
     "offlinePython": "Seleccione una Local Suite instalada. La preparación sin conexión no descarga Python ni pesos de segmentación."
   },
   "fr": {
-    "intro": "Installez le module ou préparez un paquet hors ligne. Sur l’autre poste, sélectionnez le dossier du paquet dans Local Suite.",
+    "intro": "Choisissez les poids supplémentaires à installer. Le paquet à emporter comprend tous les poids TDM et radio (~6,38 Go). Local Suite met le code à jour.",
     "suiteFolder": "Dossier Local Suite (réutilise Python déjà installé)",
     "browse": "Parcourir…",
     "folderTitle": "Dossier Local Suite",
@@ -75,7 +75,7 @@
     "offlinePython": "Sélectionnez une Local Suite installée. La préparation hors ligne ne télécharge ni Python ni poids de segmentation."
   },
   "it": {
-    "intro": "Installa il plugin o prepara un pacchetto offline. Sull’altra postazione, seleziona la cartella del pacchetto in Local Suite.",
+    "intro": "Scegli i pesi aggiuntivi da installare. Il pacchetto da portare include tutti i pesi TC e RX (~6,38 GB). Local Suite aggiorna il codice.",
     "suiteFolder": "Cartella Local Suite (riutilizza Python esistente)",
     "browse": "Sfoglia…",
     "folderTitle": "Cartella Local Suite",
@@ -90,7 +90,7 @@
     "offlinePython": "Seleziona una Local Suite installata. La preparazione offline non scarica Python o pesi di segmentazione."
   },
   "pl": {
-    "intro": "Zainstaluj wtyczkę lub przygotuj pakiet offline. Na drugiej stacji wybierz folder pakietu w Local Suite.",
+    "intro": "Wybierz dodatkowe wagi modeli do instalacji. Pakiet offline zawiera wszystkie wagi TK i RTG (~6,38 GB). Kod aktualizuje Local Suite.",
     "suiteFolder": "Folder Local Suite (używa istniejącego Pythona)",
     "browse": "Przeglądaj…",
     "folderTitle": "Folder Local Suite",
@@ -105,7 +105,7 @@
     "offlinePython": "Wybierz zainstalowaną Local Suite. Przygotowanie offline nie pobiera Pythona ani wag segmentacji."
   },
   "ar": {
-    "intro": "ثبّت المكوّن الإضافي أو حضّر حزمة دون اتصال. على الجهاز الآخر، اختر مجلد الحزمة في Local Suite.",
+    "intro": "اختر أوزان النماذج الإضافية للتثبيت. تتضمن الحزمة للنقل جميع أوزان CT والأشعة السينية (حوالي 6.38 GB). تتولى Local Suite تحديث الشيفرة.",
     "suiteFolder": "مجلد Local Suite (يعيد استخدام Python الموجود)",
     "browse": "استعراض…",
     "folderTitle": "مجلد Local Suite",
@@ -120,7 +120,7 @@
     "offlinePython": "اختر تثبيت Local Suite موجودًا. لا ينزّل التحضير دون اتصال Python أو أوزان التجزئة."
   },
   "bn": {
-    "intro": "প্লাগইন ইনস্টল করুন বা অফলাইন প্যাকেজ প্রস্তুত করুন। অন্য কম্পিউটারে Local Suite-এ প্যাকেজ ফোল্ডারটি বেছে নিন।",
+    "intro": "ইনস্টল করার জন্য অতিরিক্ত মডেল ওজন বেছে নিন। বহনযোগ্য প্যাকেজে CT ও এক্স-রের সব ওজন (~6.38 GB) থাকে। কোড আপডেট করে Local Suite।",
     "suiteFolder": "Local Suite ফোল্ডার (বিদ্যমান Python ব্যবহার করা হবে)",
     "browse": "ব্রাউজ করুন…",
     "folderTitle": "Local Suite ফোল্ডার",
@@ -135,7 +135,7 @@
     "offlinePython": "ইনস্টল করা Local Suite বেছে নিন। অফলাইন প্রস্তুতি Python বা সেগমেন্টেশনের ওজন ডাউনলোড করে না।"
   },
   "ko": {
-    "intro": "플러그인을 설치하거나 오프라인 패키지를 준비하세요. 다른 컴퓨터에서는 Local Suite에서 패키지 폴더를 선택하세요.",
+    "intro": "설치할 추가 모델 가중치를 선택하세요. 오프라인 패키지에는 CT 및 X-ray 가중치 전체(~6.38 GB)가 포함됩니다. 코드는 Local Suite에서 업데이트합니다.",
     "suiteFolder": "Local Suite 폴더(기존 Python 재사용)",
     "browse": "찾아보기…",
     "folderTitle": "Local Suite 폴더",
@@ -150,7 +150,7 @@
     "offlinePython": "설치된 Local Suite를 선택하세요. 오프라인 준비는 Python이나 분할 가중치를 다운로드하지 않습니다."
   },
   "zh-CN": {
-    "intro": "安装插件或准备离线包。在另一台工作站上，通过 Local Suite 选择软件包文件夹。",
+    "intro": "选择要安装的附加模型权重。离线携带包包含全部 CT 和 X 光权重（约 6.38 GB）。程序代码由 Local Suite 更新。",
     "suiteFolder": "Local Suite 文件夹（复用已有 Python）",
     "browse": "浏览…",
     "folderTitle": "Local Suite 文件夹",
@@ -165,7 +165,7 @@
     "offlinePython": "请选择已安装的 Local Suite。离线准备不会下载 Python 或分割模型权重。"
   },
   "ja": {
-    "intro": "プラグインをインストールするか、オフラインパッケージを準備します。別の端末では Local Suite でパッケージフォルダーを選択します。",
+    "intro": "インストールする追加モデルの重みを選択してください。持ち出し用パッケージには CT と X 線の全重み（約 6.38 GB）が含まれます。コードは Local Suite が更新します。",
     "suiteFolder": "Local Suite フォルダー（既存の Python を使用）",
     "browse": "参照…",
     "folderTitle": "Local Suite フォルダー",
