@@ -114,18 +114,23 @@ def package(frozen,suite_setup,host_sdk,destination):
     )
     destination.mkdir(parents=True,exist_ok=True)
     output=destination/('LUNG_RT_SETUP_v'+version+'.zip')
+    starter='START_HERE_TO_INSTALL_LUNG_RT.cmd'
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
-        archive.write(frozen/'release-manifest.json','release-manifest.json')
-        for entry in inventory['files']:archive.write(frozen/entry['path'],entry['path'])
-        for name in ('START_HERE.cmd','INSTALL.ps1','install.py'):archive.write(SOURCE/'installer'/name,name)
-        archive.write(SOURCE/'installer/i18n.json','installer-i18n.json')
-        archive.write(host_sdk,'radai_lung_install.py')
-        archive.write(suite_setup,'suite-setup.zip')
-        archive.writestr('suite-setup.sha256',digest(suite_setup)+'\n')
-        archive.writestr('TERMS.txt',terms)
-        archive.writestr('LEIA-ME.txt',guide)
+        archive.write(SOURCE/'installer/START_HERE.cmd',starter)
+        archive.writestr('README.txt',guide.replace('START_HERE.cmd',starter))
+        archive.write(frozen/'release-manifest.json','programa/release-manifest.json')
+        for entry in inventory['files']:archive.write(frozen/entry['path'],'programa/'+entry['path'])
+        for name in ('START_HERE.cmd','INSTALL.ps1','install.py'):archive.write(SOURCE/'installer'/name,'programa/'+name)
+        archive.write(SOURCE/'installer/i18n.json','programa/installer-i18n.json')
+        archive.write(host_sdk,'programa/radai_lung_install.py')
+        archive.write(suite_setup,'programa/suite-setup.zip')
+        archive.writestr('programa/suite-setup.sha256',digest(suite_setup)+'\n')
+        archive.writestr('programa/TERMS.txt',terms)
+        archive.writestr('programa/LEIA-ME.txt',guide.replace('START_HERE.cmd',starter))
     with zipfile.ZipFile(output) as archive:
         if archive.testzip():raise ValueError('O SETUP final não passou no CRC.')
+        if {name for name in archive.namelist() if '/' not in name} != {'README.txt',starter}:
+            raise ValueError('O layout final do SETUP nao confere.')
     latest=destination/'LUNG_RT_SETUP_LATEST.zip';shutil.copyfile(output,latest)
     result={'version':version,'code_pin':pin,'code_files':len(inventory['files']),'setup_bytes':output.stat().st_size,
             'setup_sha256':digest(output),'suite_setup_sha256':digest(suite_setup),'runtime_or_weights_included':False}

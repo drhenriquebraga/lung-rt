@@ -52,7 +52,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.17\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.19\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -62,7 +62,7 @@ class DriverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.17"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.19"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,9 +320,10 @@ class BuildTests(unittest.TestCase):
             self.assertEqual(versioned.read_bytes(),latest.read_bytes())
             self.assertFalse(result['runtime_or_weights_included'])
             with zipfile.ZipFile(versioned) as archive:
-                self.assertIn('TERMS.txt',archive.namelist())
-                self.assertIn('Extrair Tudo',archive.read('LEIA-ME.txt').decode())
-                self.assertEqual(archive.read('suite-setup.sha256').decode().strip(),hashlib.sha256(base.read_bytes()).hexdigest())
+                self.assertIn('programa/TERMS.txt',archive.namelist())
+                self.assertEqual({name for name in archive.namelist() if '/' not in name}, {'README.txt', 'START_HERE_TO_INSTALL_LUNG_RT.cmd'})
+                self.assertIn('Extrair Tudo',archive.read('programa/LEIA-ME.txt').decode())
+                self.assertEqual(archive.read('programa/suite-setup.sha256').decode().strip(),hashlib.sha256(base.read_bytes()).hexdigest())
             file=tmp/'frozen/code/LICENSE';file.write_text('modified after freeze')
             with self.assertRaisesRegex(ValueError,'freeze mudou'):BUILD.package(tmp/'frozen',base,sdk,tmp/'second')
     def test_suite_unpack_refuses_traversal_before_execution(self):
@@ -335,20 +336,21 @@ class BuildTests(unittest.TestCase):
 
 class PowerShellLayoutTests(unittest.TestCase):
     @unittest.skipUnless(os.name=='nt','Windows launcher test')
-    def test_launcher_preserves_partial_zip_diagnostic(self):
+    def test_launcher_guides_partial_zip_to_picker_without_missing_ps1_or_loop(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             source=root/'partial LUNG_RT_SETUP.zip.856'
             source.mkdir()
             launcher=source/'START_HERE.cmd'
             launcher.write_bytes((ROOT/'installer/START_HERE.cmd').read_bytes())
-            result=subprocess.run(['cmd.exe','/d','/c','call',str(launcher)],
-                                  env={**os.environ,'LOCALAPPDATA':str(root)},
-                                  input='\n',capture_output=True,text=True,timeout=15)
-            self.assertEqual(result.returncode,2,result.stdout+result.stderr)
-            self.assertIn('Extrair Tudo',result.stdout)
-            log=root/'RadioterapiaAI/LUNG RT/Logs/LUNG_RT_START_HERE.log'
-            self.assertIn('PACKAGE_INCOMPLETE',log.read_text())
+            script = r"""$ErrorActionPreference='Stop'; $text=[IO.File]::ReadAllText($env:LUNG_TEST_LAUNCHER);$body=($text -split '(?m)^# RADAI_BOOTSTRAP_POWERSHELL\r?$',2)[1];$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($body,[ref]$tokens,[ref]$errors);if($errors.Count){throw($errors|Out-String)};$ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$false)|ForEach-Object{Invoke-Expression $_.Extent.Text};function Select-InstallerZip([string]$Product){Write-Host 'ZIP_SELECTION_REQUESTED';return $null};$result=Invoke-InstallerBootstrap -SourceFolder $env:LUNG_TEST_SOURCE -Product 'lung-rt';if($result -ne 0){exit 1}"""
+            result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',script],
+                                  env={**os.environ,'LUNG_TEST_LAUNCHER':str(launcher),'LUNG_TEST_SOURCE':str(source)},
+                                  capture_output=True,text=True,timeout=15)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertEqual(result.stdout.count('ZIP_SELECTION_REQUESTED'),1)
+            self.assertNotIn('PACKAGE_INCOMPLETE',result.stdout)
+            self.assertNotIn('-File',result.stdout+result.stderr)
 
     @unittest.skipUnless(os.name=='nt','Windows installer test')
     def test_installer_logs_missing_companions_before_gui(self):
