@@ -90,6 +90,21 @@ class Runtime:
             confirm()
             return export_draft(reference,series["pasta"],report,pages)
 
+    def volume_meta(self, token):
+        """Bind the editor ticket to the displayed volume, including report leases."""
+        _, meta = self.volume(token)
+        with self.session_lock:
+            entry = self.session(token)
+            series = entry["series"]
+            _, _, signature = self.core._inspecionar(series)
+            if signature != entry["signature"]:
+                raise ValueError("series_changed")
+            if not series.get("pasta") or not series.get("uid"):
+                raise ValueError("invalid_series_selection")
+            import radai_thumbnail
+            ticket = radai_thumbnail.bilhete(series["pasta"], series["uid"])
+            return {**meta, "reference_ticket": ticket}
+
     def public_report(self, value):
         return {**{k:v for k,v in value.items() if k not in {"series","signature","capability","_revision","_key","heartbeat"}},"can_execute":value.get("station")==self.store.station}
 
@@ -118,7 +133,7 @@ class Runtime:
         language=data.get("language","pt-BR")
         if language not in LANGUAGES: raise ValueError("invalid_language")
         if action=="select": return self.select(data.get("selection"))
-        if action=="volume_meta": return self.volume(data.get("session"))[1]
+        if action=="volume_meta": return self.volume_meta(data.get("session"))
         if action=="start_screening":
             if data.get("confirmed") is not True: raise ValueError("explicit_confirmation_required")
             selection=self.session(data.get("session"))

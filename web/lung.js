@@ -2,6 +2,7 @@ import {t,language,translate} from './i18n.js';
 const $=id=>document.getElementById(id);const mode=document.body.dataset.lungMode;
 let selection=null,selectedContext=null,volume=null,meta=null,worker=null,active=null,heartbeat=null,deadlineTimer=null,stage='loading',fraction=null,lastCount=0,lastState=null,statusMotion=null;
 let currentError=null,lastDisplayStatus=null,lastSync=null;
+let loadedSession=null,volumeGeneration=0,volumeController=null,selectionGeneration=0;
 translate();
 new MutationObserver(()=>{
  translate();
@@ -12,7 +13,7 @@ new MutationObserver(()=>{
  drawMpr();
 }).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
 if(mode==='report'){$('lung-report-option').hidden=true;$('lung-cases-section').hidden=true;}
-const api=async(action,data={})=>{const response=await fetch('/api/lung-plugin/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,language:language(),...data})});const value=await response.json();if(!response.ok)throw new Error(value.error||'operation_failed');return value;};
+const api=async(action,data={},options={})=>{const response=await fetch('/api/lung-plugin/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,language:language(),...data}),signal:options.signal});const value=await response.json();if(!response.ok)throw new Error(value.error||'operation_failed');return value;};
 function showStatus(key,frac){
  lastDisplayStatus=[key,frac];
  const moving=['loading','preprocessing','encoding','prefill','generating','translating','exporting'].includes(key);
@@ -27,18 +28,31 @@ const picker=window.uiCarregarImagens?.('lung_pick',{uso:'series',chave:'lung-pl
  const container=$('lung-series');container.replaceChildren();selectedContext=context;
  for(const row of rows){if(!row.bilhete||row.mod&&row.mod!=='CT')continue;
   const label=row.desc||row.descricao||row.curto||'CT';
-  container.append(button(label,async()=>{clearError();try{
-   selection=await api('select',{selection:{scan_id:data.v,bilhete:row.bilhete,uid:row.uid}});
-   $('lung-selection').textContent=selection.description;$('lung-start').disabled=false;container.replaceChildren();picker.fechar();
-   await loadVolume(selection.session);
+  container.append(button(label,async()=>{clearError();const chosen=++selectionGeneration;$('lung-start').disabled=true;try{
+   const next=await api('select',{selection:{scan_id:data.v,bilhete:row.bilhete,uid:row.uid}});if(chosen!==selectionGeneration)return;selection=next;
+   $('lung-selection').textContent=selection.description;container.replaceChildren();picker.fechar();
+   if(await loadVolume(selection.session))$('lung-start').disabled=!!active;
   }catch(error){showError(error);}}));
  }
 },aoErro:message=>showError({message})});
 $('lung-select').onclick=()=>picker?.abrir($('lung-select'));
 async function loadVolume(session){
- showStatus('encoding');meta=await api('volume_meta',{session});const response=await fetch('/api/lung-plugin/volume/'+encodeURIComponent(session),{cache:'no-store'});if(!response.ok)throw new Error('volume_unavailable');volume=new Float32Array(await response.arrayBuffer());
- for(const [axis,index] of [['x',0],['y',1],['z',2]]){$('lung-'+axis).max=meta.dims[index]-1;$('lung-'+axis).value=Math.floor(meta.dims[index]/2);$('lung-'+axis).oninput=drawMpr;}
- drawMpr();lastDisplayStatus=null;statusMotion?.parar();statusMotion=null;$('lung-progress').hidden=true;$('lung-status').textContent='';
+ const generation=++volumeGeneration;volumeController?.abort();const controller=new AbortController();volumeController=controller;
+ const mpr=document.querySelector('.lung-mpr');if(mpr){delete mpr.dataset.contourReference;delete mpr.dataset.contourReady;}
+ volume=null;meta=null;loadedSession=null;
+ for(const name of ['axial','coronal','sagittal']){const c=$('lung-'+name);c.getContext('2d').clearRect(0,0,c.width,c.height);}
+ showStatus('encoding');
+ try{
+  const nextMeta=await api('volume_meta',{session},{signal:controller.signal});
+  const response=await fetch('/api/lung-plugin/volume/'+encodeURIComponent(session),{cache:'no-store',signal:controller.signal});if(!response.ok)throw new Error('volume_unavailable');
+  const buffer=await response.arrayBuffer();if(generation!==volumeGeneration)return false;
+  const dims=nextMeta.dims;if(!Array.isArray(dims)||dims.length!==3||dims.some(v=>!Number.isSafeInteger(v)||v<=0)||dims.reduce((a,b)=>a*b,1)*4!==buffer.byteLength||buffer.byteLength>512*1024**2)throw new Error('invalid_volume');
+  volume=new Float32Array(buffer);meta=nextMeta;
+  for(const [axis,index] of [['x',0],['y',1],['z',2]]){$('lung-'+axis).max=meta.dims[index]-1;$('lung-'+axis).value=Math.floor(meta.dims[index]/2);$('lung-'+axis).oninput=drawMpr;}
+  drawMpr();loadedSession=session;
+  if(mpr&&/^[a-f0-9]{32}$/.test(String(meta.reference_ticket||''))){mpr.dataset.contourReference=meta.reference_ticket;mpr.dataset.contourReady='1';}
+  lastDisplayStatus=null;statusMotion?.parar();statusMotion=null;$('lung-progress').hidden=true;$('lung-status').textContent='';return true;
+ }catch(error){if(generation!==volumeGeneration||error.name==='AbortError')return false;volume=null;meta=null;loadedSession=null;throw error;}
 }
 function drawMpr(){
  if(!volume||!meta)return;const [X,Y,Z]=meta.dims;const at=(x,y,z)=>volume[x+X*(y+Y*z)];const px=+$('lung-x').value,py=+$('lung-y').value,pz=+$('lung-z').value;
@@ -57,7 +71,8 @@ function cleanup(){lastDisplayStatus=null;statusMotion?.parar();statusMotion=nul
 async function execute(id){
  if(active)return;clearError();const lease=await api('start_report',{id});if(!lease.lease)return;active=lease;stage='loading';fraction=null;$('lung-start').disabled=true;$('lung-stop').disabled=false;$('lung-text').textContent='';
  try{
-  if(!meta||selection?.session!==lease.session)await loadVolume(lease.session);
+  if(!meta||loadedSession!==lease.session){if(!await loadVolume(lease.session))throw new Error('volume_unavailable');}
+  if(loadedSession!==lease.session)throw new Error('volume_unavailable');
   worker=new Worker('/lung-assets/report-worker.js',{type:'module'});
   const update=()=>active&&api('report_progress',{id:active.id,lease:active.lease,stage,fraction}).catch(error=>{cleanup();showError(error);});
   heartbeat=setInterval(update,5000);deadlineTimer=setTimeout(async()=>{const running=active;cleanup();if(running)await api('cancel_report',{id:running.id}).catch(()=>{});showError('timeout');},Math.max(1,lease.deadline*1000-Date.now()));
@@ -105,5 +120,5 @@ function showSync(){
  $('lung-data-status').textContent=Object.entries(lastSync).map(([key,value])=>t(key)+' · '+Number(value).toLocaleString(language())).join(' | ');
 }
 for(const action of ['backup','sync'])$('lung-'+action).onclick=async()=>{clearError();const folder=$('lung-data-folder').value.trim();if(!folder)return;try{const result=await api(action,{folder,confirmed:true});lastSync=action==='sync'?result:null;if(lastSync)showSync();else $('lung-data-status').textContent=result.file;}catch(error){showError(error);}};
-window.addEventListener('pagehide',()=>{worker?.terminate();});
+window.addEventListener('pagehide',()=>{volumeController?.abort();worker?.terminate();});
 refresh();setInterval(refresh,3000);
