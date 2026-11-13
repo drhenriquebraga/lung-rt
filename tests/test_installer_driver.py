@@ -52,7 +52,7 @@ def fake_package(path,resources=False):
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.23\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.24\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -62,7 +62,7 @@ class DriverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.23"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,"8.24"):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
