@@ -15,7 +15,7 @@ def render(runtime,mode):
     import radai_ui as ui
     import radai_menu
     report=mode=="report"
-    title="Laudo sintético" if report else "Rastreio populacional de nódulos"
+    title="Laudo sintético" if report else "Rastreio populacional de nódulos pulmonares"
     help_rows = (
         ("helpLead", "Pré-laudo experimental — exige revisão médica."),
         ("helpModel", "O modelo local int4 pode omitir ou inventar achados. A quantização reduz o tamanho e pode alterar o texto. Versões menos comprimidas existem. A superioridade clínica não foi medida aqui."),
