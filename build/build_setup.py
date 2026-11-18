@@ -3,6 +3,7 @@ import argparse
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -19,6 +20,18 @@ def digest(path):
     with Path(path).open('rb') as stream:
         for block in iter(lambda:stream.read(1024**2),b''):h.update(block)
     return h.hexdigest()
+
+
+def normalize_installer_zip(archive_path):
+    """Make the release independent of file mtimes, host platform and build path."""
+    normalized = archive_path.with_suffix('.normalized.zip')
+    with zipfile.ZipFile(archive_path) as original, zipfile.ZipFile(normalized, 'w') as rebuilt:
+        for name in sorted(original.namelist()):
+            entry = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            entry.create_system = 3
+            entry.external_attr = 0o100644 << 16
+            rebuilt.writestr(entry, original.read(name), zipfile.ZIP_DEFLATED, compresslevel=9)
+    os.replace(normalized, archive_path)
 
 
 def freeze(destination,host_sdk=None):
@@ -47,7 +60,7 @@ def freeze(destination,host_sdk=None):
         entries.append({'path':'code/'+relative.as_posix(),'size':target.stat().st_size,'sha256':digest(target)})
     inventory={'schema':'lung-rt/release-package/1','plugin_id':'lung-rt','version':module['version'],'files':entries}
     manifest=destination/'release-manifest.json'
-    manifest.write_text(json.dumps(inventory,ensure_ascii=False,sort_keys=True,indent=2)+'\n',encoding='utf8')
+    manifest.write_bytes((json.dumps(inventory,ensure_ascii=False,sort_keys=True,indent=2)+'\n').replace('\n','\r\n').encode('utf8'))
     pin=digest(manifest)
     if host_sdk:
         sdk=Path(host_sdk);text=sdk.read_text(encoding='utf8')
@@ -128,6 +141,7 @@ def package(frozen,suite_setup,host_sdk,destination):
         archive.writestr('programa/suite-setup.sha256',digest(suite_setup)+'\n')
         archive.writestr('programa/TERMS.txt',terms)
         archive.writestr('programa/LEIA-ME.txt',guide.replace('START_HERE.cmd',starter))
+    normalize_installer_zip(output)
     with zipfile.ZipFile(output) as archive:
         if archive.testzip():raise ValueError('O SETUP final não passou no CRC.')
         if {name for name in archive.namelist() if '/' not in name} != {'README.txt',starter}:
