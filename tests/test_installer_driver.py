@@ -49,10 +49,12 @@ def fake_package(path,resources=False):
     return hashlib.sha256(raw).hexdigest(),payload
 
 
+MINIMUM_HOST=json.loads((ROOT/'module.json').read_text(encoding='utf8'))['host_min_version']
+
 class DriverTests(unittest.TestCase):
     def test_existing_suite_only_hands_off_no_base_or_runtime(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=8.24\n")
+            root=Path(tmp)/"Suite with spaces";root.mkdir();(root/"entrega.txt").write_text("VERSAO=" + MINIMUM_HOST + "\n")
             (root/"python").mkdir();runtime=root/"python/python.exe";runtime.write_bytes(b"synthetic sentinel")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack,patch.object(DRIVER.subprocess,"run") as run:
                 DRIVER.standalone(root,False)
@@ -62,7 +64,7 @@ class DriverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/"entrega.txt").write_text("VERSAO=8.16\n")
             with patch.object(DRIVER,"install_through_host") as host,patch.object(DRIVER,"unpack_suite") as unpack:
-                with self.assertRaisesRegex(ValueError,"8.24"):DRIVER.standalone(root,False)
+                with self.assertRaisesRegex(ValueError,MINIMUM_HOST.replace(".",r"\.")):DRIVER.standalone(root,False)
                 host.assert_not_called();unpack.assert_not_called()
     def test_new_suite_profile_and_shared_python_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -116,9 +118,10 @@ class DriverTests(unittest.TestCase):
     def test_reports_not_selected_never_starts_optional_model_preparation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
-            with patch.object(DRIVER,'_api',return_value={'suite_fingerprint':SDK.suite_identity(root),'token':'synthetic'}) as api,patch.object(SDK,'inspect_local_source') as inspect,patch.object(DRIVER,'start_suite'),patch.object(DRIVER,'say'):
+            with patch.object(DRIVER,'_api',return_value={'state':'ready','suite_fingerprint':SDK.suite_identity(root),'token':'synthetic'}) as api,patch.object(SDK,'inspect_local_source') as inspect,patch.object(DRIVER,'start_suite'),patch.object(DRIVER,'say'),patch.object(SDK,'registrar_modulo_instalado') as activate:
                 DRIVER.install_through_host(root,False)
             self.assertEqual(api.call_count,1);inspect.assert_not_called()
+            activate.assert_called_once_with(root,'standalone')
     def test_cli_acceptance_is_required_before_any_side_effect(self):
         with patch.object(sys,'argv',['install.py','--suite-root','SYNTHETIC']),patch.object(DRIVER,'standalone') as install,patch.object(DRIVER,'offline') as offline:
             with self.assertRaisesRegex(ValueError,'aceite'):DRIVER.main()
@@ -138,9 +141,10 @@ class DriverTests(unittest.TestCase):
             receipt=json.loads((root/'Plugins/LUNG RT/config/consent.json').read_text());self.assertEqual(receipt['digest'],SDK.CONSENT_POLICY['digest'])
     def test_new_base_without_reports_only_opens_app(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(DRIVER,'prepare_host_code'),patch.object(SDK,'prepare_external_plan') as prepare,patch.object(SDK,'run_external') as run,patch.object(DRIVER,'start_suite') as start,patch.object(DRIVER,'say'):
+            with patch.object(DRIVER,'prepare_host_code'),patch.object(SDK,'prepare_external_plan') as prepare,patch.object(SDK,'run_external') as run,patch.object(DRIVER,'start_suite') as start,patch.object(DRIVER,'say'),patch.object(SDK,'registrar_modulo_instalado') as activate:
                 DRIVER.finish_new(Path(tmp),False)
             prepare.assert_not_called();run.assert_not_called();start.assert_called_once()
+            activate.assert_called_once_with(Path(tmp),'compact')
     def test_new_base_code_is_prepared_by_suite_installer_not_plugin_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'radai_plugin_bootstrap.py').write_text('# synthetic sentinel')

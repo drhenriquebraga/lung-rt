@@ -113,8 +113,11 @@ def install_through_host(root,reports):
     if state.get('suite_fingerprint') != SDK.suite_identity(root):
         raise ValueError('A porta está ocupada por outra instalação da Local Suite. Feche a outra instância ou confira a pasta escolhida.')
     if not reports:
+        if state.get('state') != 'ready':
+            prepare_host_code(root)
         consent(root)
-        say('As funções pulmonares da base já estão disponíveis. Nenhum peso adicional foi solicitado.')
+        SDK.registrar_modulo_instalado(root, 'standalone')
+        say('Módulo pulmonar instalado. As funções da base estão disponíveis.')
         start_suite(root)
         return
     token=state['token']
@@ -196,6 +199,8 @@ def finish_new(root,reports):
         source=str(source_root()) if description.get('offline') else None
         plan=SDK.prepare_external_plan({'resources_only':True,'installed_version':active['active_version']},source_folder=source)
         SDK.run_external(plan,progress,suite_root=root,host_python=sys.executable)
+    else:
+        SDK.registrar_modulo_instalado(root, 'compact')
     say('3/4 Plugin instalado. O rastreio inicia com laudos desligados.')
     start_suite(root)
     say('4/4 Abrindo LUNG RT. Os demais módulos ficam disponíveis ao instalar a suíte completa.')
