@@ -23,7 +23,10 @@ class Runtime:
         self.sessions={}
         self.session_lock=threading.RLock()
         self.reports=Reports(self.store,self.provider,lambda:self.acquire("lung-report"),lambda:self.release("lung-report"),self.core._inspecionar,self.export)
-        self.screening=Screening(self.store,self.core,self.cfg,self.reports,lambda:self.acquire("lung-screening"),lambda:self.release("lung-screening"))
+        import radai_queue_state
+        self.screening=Screening(self.store,self.core,self.cfg,self.reports,
+            lambda:self.acquire("lung-screening"),lambda:self.release("lung-screening"),
+            services.get("screening_status") or getattr(radai_queue_state,"rastreio_status",None))
 
     def acquire(self, name):
         custom=self.services.get("acquire_gpu")
@@ -109,10 +112,16 @@ class Runtime:
         return {**{k:v for k,v in value.items() if k not in {"series","signature","capability","_revision","_key","heartbeat"}},"can_execute":value.get("station")==self.store.station}
 
     def state(self):
+        from .screening_images import metadata
         cases=self.store.list("cases",500)
         public_cases=[]
         for case in cases:
             public_cases.append({k:case[k] for k in ("id","lesions","segmentation_state","report_state","created_at","review","longitudinal_suggestions") if k in case})
+            source = case.get("series") or {}
+            public_cases[-1]["description"] = str(source.get("desc") or "")[:96]
+            public_cases[-1]["series_number"] = source.get("numero")
+            local = metadata(self.store.directory,case["id"]) if case.get("lesions") else {}
+            public_cases[-1]["lesions"] = [dict(item, **local.get(item["id"], {})) for item in case.get("lesions", [])]
         reports=[self.public_report(r) for r in self.store.list("reports",500)]
         pending=[r for r in self.store.list("reviews") if r["state"]=="pending"]
         return {"screening":dict(self.screening.state),"cases":public_cases,"reports":reports,
@@ -136,8 +145,10 @@ class Runtime:
         if action=="volume_meta": return self.volume_meta(data.get("session"))
         if action=="start_screening":
             if data.get("confirmed") is not True: raise ValueError("explicit_confirmation_required")
-            selection=self.session(data.get("session"))
-            return self.screening.start(selection["scan_root"],generate_reports=data.get("generate_reports",0),language=language)
+            folders = data["folders"] if "folders" in data else self.session(data.get("session"))["scan_root"]
+            return self.screening.start(folders,generate_reports=data.get("generate_reports",0),language=language)
+        if action=="screening_options":
+            return {"folders":self.screening.options().get("folders",[])}
         if action=="stop_screening": return self.screening.cancel()
         if action=="create_report":
             if data.get("confirmed") is not True: raise ValueError("explicit_confirmation_required")
@@ -196,7 +207,7 @@ class Runtime:
         raise ValueError("unknown_action")
 
     def close(self):
-        self.screening.cancel()
+        self.screening.cancel(shutdown=True)
         self.reports.close()
 
 
@@ -208,6 +219,8 @@ def mount(app, host_services):
     if getattr(app.state,"lung_plugin",None): return app.state.lung_plugin
     runtime=Runtime(host_services)
     app.state.lung_plugin=runtime
+    if runtime.consent_valid():
+        runtime.screening.resume()
 
     @app.middleware("http")
     async def local_boundary(request,call_next):
@@ -258,6 +271,16 @@ def mount(app, host_services):
 
     @app.get("/api/lung-plugin/state")
     def state(): return runtime.state()
+
+    @app.get("/api/lung-plugin/screening/{case_id}/{lesion}")
+    def screening_view(case_id:str, lesion:str, z:int=None, thumb:bool=False, info:bool=False):
+        from .screening_images import ensure_case, frame
+        try:
+            if info:
+                return ensure_case(runtime,case_id)[lesion]
+            return FileResponse(frame(runtime,case_id,lesion,z,thumb),media_type="image/png")
+        except (OSError, KeyError, ValueError, RuntimeError):
+            return JSONResponse({"error":"preview_unavailable"},status_code=404)
 
     @app.post("/api/lung-plugin/action")
     async def action(request:Request):

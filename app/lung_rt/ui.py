@@ -22,6 +22,9 @@ def render(runtime,mode):
         ("helpRuntime", "O piloto requer WebGPU e uma GPU com pelo menos 6 GB. Sem nuvem nem fallback CPU. Cada tentativa termina em até uma hora e pode falhar ou ser truncada."),
         ("helpDraft", "Os arquivos são rascunhos novos: PDF DICOM e SR PRELIMINARY/UNVERIFIED. Os contornos continuam UNAPPROVED. O NLP lê somente o próprio rascunho."),
     )
+    if not report:
+        help_rows = (("screenHelp","O rastreio acompanha as pastas selecionadas e aparece na fila da estação."),
+                     ("screenView","Abra o nódulo para ver o contorno axial na janela pulmonar."))
     header = _translated_header(ui, title, "Processamento local · revisão humana",
                                 "reportTitle" if report else "screeningTitle", help_rows,
                                 attr="data-lung-key", label="data-lung-title")
@@ -29,6 +32,17 @@ def render(runtime,mode):
     picker=ui.formulario_carregar_imagens("lung_pick",titulo="Adicionar novas séries",
                                         envolver=lambda corpo:corpo+marker)
     page=(runtime.root/"web/page.html").read_text(encoding="utf-8")
+    if not report:
+        page = page.replace('data-lung-key="warning"', 'data-lung-key="screenHelp"')
+        page = page.replace('</head>', '<link rel="stylesheet" href="/lung-assets/screening.css"></head>')
+        page = page.replace('data-lung-key="select"', 'data-lung-key="folders"')
+        page = page.replace('<span id="lung-selection"></span>', '<ul id="lung-folders"></ul>')
+        page = page.replace('<section class="lung-mpr">', '<section class="lung-mpr" hidden>')
+        page = page.replace('<div id="lung-cases"></div>', '<div id="lung-cases" class="lung-table-wrap"></div>'
+            '<dialog id="lung-axial-dialog"><form method="dialog"><button class="ui-bt" data-lung-title="cancel">×</button></form>'
+            '<img id="lung-axial-frame" alt="Axial"><label><span data-lung-key="axial"></span> '
+            '<output id="lung-axial-index"></output><input id="lung-axial-level" type="range"></label></dialog>')
+        picker = ""
     for key,value in {"@TITLE@":escape(title),"@MODE@":mode,"@HEADER@":header,"@PICKER@":picker}.items():
         page=page.replace(key,value)
     apply=runtime.services.get("ui_apply")

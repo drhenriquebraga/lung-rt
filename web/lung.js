@@ -1,4 +1,5 @@
 import {t,language,translate} from './i18n.js';
+import {folderSelection, renderScreening} from './screening.js';
 const $=id=>document.getElementById(id);const mode=document.body.dataset.lungMode;
 let selection=null,selectedContext=null,volume=null,meta=null,worker=null,active=null,heartbeat=null,deadlineTimer=null,stage='loading',fraction=null,lastCount=0,lastState=null,statusMotion=null;
 let currentError=null,lastDisplayStatus=null,lastSync=null;
@@ -24,7 +25,7 @@ function showError(error){currentError=error.message||error;$('lung-error').text
 function clearError(){currentError=null;$('lung-error').textContent='';}
 function textNode(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
 function button(text,onClick){const el=textNode('button',text);el.className='ui-bt';el.type='button';el.addEventListener('click',onClick);return el;}
-const picker=window.uiCarregarImagens?.('lung_pick',{uso:'series',chave:'lung-plugin-select',opcoes:{modalidades:['CT']},aoFim(rows,data,context){
+const picker=mode==='report' && window.uiCarregarImagens?.('lung_pick',{uso:'series',chave:'lung-plugin-select',opcoes:{modalidades:['CT']},aoFim(rows,data,context){
  const container=$('lung-series');container.replaceChildren();selectedContext=context;
  for(const row of rows){if(!row.bilhete||row.mod&&row.mod!=='CT')continue;
   const label=row.desc||row.descricao||row.curto||'CT';
@@ -35,7 +36,8 @@ const picker=window.uiCarregarImagens?.('lung_pick',{uso:'series',chave:'lung-pl
   }catch(error){showError(error);}}));
  }
 },aoErro:message=>showError({message})});
-$('lung-select').onclick=()=>picker?.abrir($('lung-select'));
+const folders = mode==='screening' ? folderSelection(api,showError,()=>refresh()) : null;
+if(mode==='report') $('lung-select').onclick=()=>picker?.abrir($('lung-select'));
 async function loadVolume(session){
  const generation=++volumeGeneration;volumeController?.abort();const controller=new AbortController();volumeController=controller;
  const mpr=document.querySelector('.lung-mpr');if(mpr){delete mpr.dataset.contourReference;delete mpr.dataset.contourReady;}
@@ -62,8 +64,8 @@ function drawMpr(){
   ctx.fillStyle='#05070a';ctx.fillRect(0,0,512,512);const scale=Math.min(512/(w*spx),512/(h*spy));const dw=w*spx*scale,dh=h*spy*scale;ctx.drawImage(off,(512-dw)/2,(512-dh)/2,dw,dh);ctx.fillStyle='white';ctx.font='14px sans-serif';const rtl=language()==='ar';ctx.direction=rtl?'rtl':'ltr';ctx.textAlign=rtl?'right':'left';ctx.fillText(t(name),rtl?502:10,20);
  }
 }
-$('lung-start').onclick=async()=>{clearError();if(!selection||!window.confirm(t('confirm')))return;try{
- if(mode==='screening'){await api('start_screening',{session:selection.session,generate_reports:$('lung-generate').checked?1:0,confirmed:true});$('lung-start').disabled=true;$('lung-stop').disabled=false;}
+$('lung-start').onclick=async()=>{clearError();if(!(folders?.length||selection)||!window.confirm(t('confirm')))return;try{
+ if(mode==='screening'){await api('start_screening',{folders:[...folders],generate_reports:$('lung-generate').checked?1:0,confirmed:true});$('lung-start').disabled=true;$('lung-stop').disabled=false;}
  else{const report=await api('create_report',{session:selection.session,confirmed:true});if(report.state==='failed')throw new Error(report.error);await execute(report.id);}
 }catch(error){showError(error);}};
 $('lung-stop').onclick=async()=>{try{if(active){const id=active.id;cleanup();await api('cancel_report',{id});}if(mode==='screening')await api('stop_screening');$('lung-stop').disabled=true;$('lung-start').disabled=!selection;}catch(error){showError(error);}};
@@ -110,9 +112,11 @@ function renderState(state,allowStart=true){
  const pending=$('lung-pending');pending.replaceChildren();if(!count)pending.append(textNode('p',t('empty')));
  for(const item of state.pending){const el=textNode('div',t('review')+' · '+t(item.kind));el.className='lung-item';el.append(button(t('acknowledge'),async()=>{await api('review',{key:item._key,revision:item._revision});await refresh();}));pending.append(el);}
  const reports=$('lung-reports');reports.replaceChildren();for(const report of state.reports.slice(0,8)){const row=textNode('div',t(report.error||report.state));row.className='lung-item';if(report.state==='completed')row.append(button(t('review'),()=>{$('lung-text').textContent=report.display_text;}));reports.append(row);}
- const cases=$('lung-cases');cases.replaceChildren();if(!state.cases.length)cases.append(textNode('p',t('empty')));
+ if(mode==='screening') renderScreening(state.cases,api,refresh,showError);
+ const cases=$('lung-cases');if(mode==='report'){cases.replaceChildren();if(!state.cases.length)cases.append(textNode('p',t('empty')));
  for(const value of state.cases){const row=textNode('div',new Date(value.created_at*1000).toLocaleString(language())+' · '+t(value.segmentation_state));row.className='lung-item';for(const lesion of value.lesions){row.append(textNode('p',String(lesion.id)+' · '+t('volume')+': '+Number(lesion.volume_mm3).toLocaleString(language())+' mm³ · '+(lesion.lobo&&lesion.lobo!=='indeterminado'?lesion.lobo:t('indeterminate'))));}for(const match of value.longitudinal_suggestions||[]){row.append(button(t('suggested')+(match.distance_mm==null?'':' · '+match.distance_mm+' mm'),async()=>{if(!confirm(t('suggested')))return;await api('confirm_link',{case_id:value.id,...match});await refresh();}));}cases.append(row);}
- if(mode==='screening'&&!active){$('lung-start').disabled=state.screening.active||!selection;$('lung-stop').disabled=!state.screening.active;$('lung-status').textContent=t(state.screening.stage);}
+ }
+ if(mode==='screening'&&!active){$('lung-start').disabled=state.screening.active||!folders.length;$('lung-stop').disabled=!state.screening.active;$('lung-select').disabled=state.screening.active;for(const b of $('lung-folders').querySelectorAll('button'))b.disabled=state.screening.active;$('lung-status').textContent=[t(state.screening.stage),state.screening.last_error&&t(state.screening.last_error)].filter(Boolean).join(' · ');}
  if(allowStart&&mode==='screening'&&state.screening.generate_reports===1&&!active){const next=state.reports.find(r=>r.state==='waiting_browser'&&r.can_execute);if(next)execute(next.id).catch(error=>{if(error.message!=='gpu_busy')showError(error);});}
 }
 async function refresh(){try{const response=await fetch('/api/lung-plugin/state',{cache:'no-store'});if(response.ok)renderState(await response.json());}catch(error){showError(error);}}

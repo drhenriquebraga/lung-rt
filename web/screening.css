@@ -1,0 +1,14 @@
+[data-lung-mode="screening"] .lung-mpr{display:none}
+[data-lung-mode="screening"] .lung-workspace{display:block}
+#lung-folders{padding:0;list-style:none}
+#lung-folders li{display:flex;align-items:center;justify-content:space-between;gap:.75rem;overflow-wrap:anywhere;padding:.3rem 0}
+.lung-table-wrap{overflow:auto}
+.lung-table-wrap table{width:100%;border-collapse:collapse}
+.lung-table-wrap td,.lung-table-wrap th{padding:.5rem;text-align:start;border-bottom:1px solid var(--line,#344256)}
+.lung-table-wrap img{display:block;max-width:90px;max-height:80px}
+.lung-thumb{padding:0;cursor:zoom-in;background:#050709;border:1px solid var(--line,#344256)}
+#lung-axial-dialog{background:var(--panel,#101c2d);color:var(--text,#e6edf7);border:1px solid var(--line,#344256);border-radius:12px;max-width:96vw}
+#lung-axial-dialog::backdrop{background:rgb(0 0 0/.72)}
+#lung-axial-dialog form{text-align:end}
+#lung-axial-frame{display:block;max-width:82vw;max-height:70vh;margin:auto}
+#lung-axial-level{width:100%}

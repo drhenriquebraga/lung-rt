@@ -247,7 +247,7 @@ class ProfileTests(unittest.TestCase):
             root=Path(tmp);PROFILE.gravar_perfil({'bundle':root,'profile':'lung-rt'})
             self.assertEqual(PROFILE.perfil_do_destino(None,root),'lung-rt')
             self.assertEqual(PROFILE.perfil_do_destino('full',root),'full')
-            self.assertEqual(PROFILE.modelos_do_perfil({'profile':'lung-rt'}),())
+            self.assertEqual(PROFILE.modelos_do_perfil({'profile':'lung-rt'}),('moose_ribs',))
             self.assertIn('lung_nodules',PROFILE.tasks_do_perfil({'profile':'lung-rt'}))
             self.assertNotIn('total_mr',PROFILE.tasks_do_perfil({'profile':'lung-rt'}))
     def test_lung_weights_do_not_request_other_model_registry(self):
@@ -261,7 +261,9 @@ class ProfileTests(unittest.TestCase):
             stack.enter_context(patch.object(radai_tasks,'datasets_do_pacote',return_value=[123]))
             stack.enter_context(patch.object(radai_tasks,'baixados',return_value={123}))
             PROFILE.etapa_pesos({'profile':'lung-rt','bundle':root,'py':root/'python/python.exe','preparo':str(root)})
-            registry.assert_not_called();self.assertEqual(downloader.call_args.args[1],[radai_tasks.nome_na_biblioteca(t) for t in tasks])
+            registry.assert_called_once()
+            self.assertEqual(registry.call_args.kwargs, dict(exigidos=('moose_ribs',), permitidos=('moose_ribs',)))
+            self.assertEqual(downloader.call_args.args[1],[radai_tasks.nome_na_biblioteca(t) for t in tasks])
 
 
 class HandoffTests(unittest.TestCase):
