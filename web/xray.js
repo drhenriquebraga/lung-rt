@@ -284,6 +284,8 @@ for (const button of document.querySelectorAll('[data-rx-close]')) {
 $('prepare').addEventListener('click', () => {
   $('accept').checked = false;
   $('download').disabled = true;
+  const link = window.uiLinkTermosDoPlugin?.('lung-rt');
+  if (link) $('plugin-terms').replaceChildren(link);
   $('license').showModal();
 });
 $('accept').addEventListener('change', () => {
@@ -311,6 +313,9 @@ $('download').addEventListener('click', async () => {
 
 $('generate').addEventListener('click', async () => {
   if ($('generate').disabled || !preview || generating) return;
+  const selected = preview;
+  const approved = window.uiConfirmarDoPlugin ? await window.uiConfirmarDoPlugin('lung-rt', text('generate')) : window.confirm(text('generate'));
+  if (!approved || generating || selected !== preview || $('generate').disabled) return;
   generating = true;
   reportError = null;
   result = null;

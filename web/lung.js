@@ -64,9 +64,12 @@ function drawMpr(){
   ctx.fillStyle='#05070a';ctx.fillRect(0,0,512,512);const scale=Math.min(512/(w*spx),512/(h*spy));const dw=w*spx*scale,dh=h*spy*scale;ctx.drawImage(off,(512-dw)/2,(512-dh)/2,dw,dh);ctx.fillStyle='white';ctx.font='14px sans-serif';const rtl=language()==='ar';ctx.direction=rtl?'rtl':'ltr';ctx.textAlign=rtl?'right':'left';ctx.fillText(t(name),rtl?502:10,20);
  }
 }
-$('lung-start').onclick=async()=>{clearError();if(!(folders?.length||selection)||!window.confirm(t('confirm')))return;try{
- if(mode==='screening'){await api('start_screening',{folders:[...folders],generate_reports:$('lung-generate').checked?1:0,confirmed:true});$('lung-start').disabled=true;$('lung-stop').disabled=false;}
- else{const report=await api('create_report',{session:selection.session,confirmed:true});if(report.state==='failed')throw new Error(report.error);await execute(report.id);}
+$('lung-start').onclick=async()=>{clearError();const roots=folders?[...folders]:[],session=selection?.session;
+ if(!(roots.length||session))return;const generateReports=mode==='screening'&&$('lung-generate').checked;
+ const approved=window.uiConfirmarDoPlugin?await window.uiConfirmarDoPlugin('lung-rt',t('confirm')):window.confirm(t('confirm'));
+ if(!approved)return;try{
+ if(mode==='screening'){await api('start_screening',{folders:roots,generate_reports:generateReports?1:0,confirmed:true});$('lung-start').disabled=true;$('lung-stop').disabled=false;}
+ else{const report=await api('create_report',{session,confirmed:true});if(report.state==='failed')throw new Error(report.error);await execute(report.id);}
 }catch(error){showError(error);}};
 $('lung-stop').onclick=async()=>{try{if(active){const id=active.id;cleanup();await api('cancel_report',{id});}if(mode==='screening')await api('stop_screening');$('lung-stop').disabled=true;$('lung-start').disabled=!selection;}catch(error){showError(error);}};
 function cleanup(){lastDisplayStatus=null;statusMotion?.parar();statusMotion=null;worker?.terminate();worker=null;clearInterval(heartbeat);clearTimeout(deadlineTimer);heartbeat=null;deadlineTimer=null;active=null;$('lung-progress').hidden=true;}
